@@ -9,23 +9,28 @@ export type DetailsSection = 'overview' | 'universe' | 'experts' | 'evidence';
 
 const SECTIONS: readonly DetailsSection[] = ['overview', 'universe', 'experts', 'evidence'];
 
-export function BookDetails({ book, meta, record, base, section = 'overview', onEditCatalog, onClose }: {
+export function BookDetails({ book, meta, record, base, section = 'overview', focusCatalogEditor = false, onEditCatalog, onClose }: {
   book: LibraryEntry;
   meta?: BookMeta;
   record?: CatalogRecord;
   base?: string;
   section?: DetailsSection;
+  focusCatalogEditor?: boolean;
   onEditCatalog: () => void;
   onClose: () => void;
 }): ReactElement {
   const t = useT();
   const titleId = useId();
   const close = useRef<HTMLButtonElement>(null);
+  const editCatalog = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const [active, setActive] = useState<DetailsSection>(section);
 
   useEffect(() => { setActive(section); }, [section]);
   useEffect(() => { close.current?.focus(); }, []);
+  useEffect(() => {
+    if (focusCatalogEditor) editCatalog.current?.focus();
+  }, [focusCatalogEditor]);
   const dismiss = (): void => {
     opener.current?.focus();
     onClose();
@@ -66,7 +71,7 @@ export function BookDetails({ book, meta, record, base, section = 'overview', on
               <dt>{t.details.tags}</dt><dd>{record?.tags.length ? record.tags.join(', ') : t.details.none}</dd>
             </dl>
             {meta?.intro && <p className="details-intro">{meta.intro}</p>}
-            <button type="button" className="shelf-act" onClick={onEditCatalog}>{t.details.editCatalog}</button>
+            <button ref={editCatalog} type="button" className="shelf-act" onClick={onEditCatalog}>{t.details.editCatalog}</button>
           </div>
         ) : (
           <div className="details-empty" role="tabpanel">{t.details.empty[active]}</div>

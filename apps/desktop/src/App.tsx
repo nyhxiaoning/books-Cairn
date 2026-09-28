@@ -36,6 +36,7 @@ export function App(): ReactElement {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [details, setDetails] = useState<DetailsTarget>();
   const [editingCatalog, setEditingCatalog] = useState<string>();
+  const [focusCatalogEditor, setFocusCatalogEditor] = useState(false);
   const [detailsMeta, setDetailsMeta] = useState<Readonly<Record<string, BookMeta>>>({});
   /** Port and token are new on every launch, so every URL is built from this. */
   const [base, setBase] = useState<string>();
@@ -233,6 +234,7 @@ export function App(): ReactElement {
   }, [resume]);
 
   const openDetails = useCallback((id: string, section: DetailsSection = 'overview') => {
+    setFocusCatalogEditor(false);
     setDetails({ bookId: id, section });
     void bookMeta(id).then((meta) => {
       if (meta) setDetailsMeta((current) => ({ ...current, [id]: meta }));
@@ -243,6 +245,7 @@ export function App(): ReactElement {
     const next = await patchCatalog(id, patch);
     setCatalog(next);
     setEditingCatalog(undefined);
+    setFocusCatalogEditor(true);
   }, []);
 
   const suggestCatalog = useCallback(async (id: string) => {
@@ -274,7 +277,10 @@ export function App(): ReactElement {
           record={catalog.records[editingCatalog]}
           onSuggest={() => suggestCatalog(editingCatalog)}
           onSave={(patch) => saveCatalog(editingCatalog, patch)}
-          onClose={() => setEditingCatalog(undefined)}
+          onClose={() => {
+            setEditingCatalog(undefined);
+            setFocusCatalogEditor(true);
+          }}
         />
       ) : details && detailBook && (
         <BookDetails
@@ -283,8 +289,15 @@ export function App(): ReactElement {
           record={catalog.records[details.bookId]}
           base={base}
           section={details.section}
-          onEditCatalog={() => setEditingCatalog(details.bookId)}
-          onClose={() => setDetails(undefined)}
+          focusCatalogEditor={focusCatalogEditor}
+          onEditCatalog={() => {
+            setFocusCatalogEditor(false);
+            setEditingCatalog(details.bookId);
+          }}
+          onClose={() => {
+            setFocusCatalogEditor(false);
+            setDetails(undefined);
+          }}
         />
       )}
     </>
