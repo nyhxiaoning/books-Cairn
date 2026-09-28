@@ -11,6 +11,7 @@ function shellWith(overrides: Partial<ShellSettings['prefs']> = {}): ShellSettin
       providers: {}, generationProvider: 'openai', chatProvider: 'inherit',
       narration: 'follow', voices: { en: 'en-US-AndrewNeural', zh: 'zh-CN-YunjianNeural' },
       searchProvider: 'firecrawl', braveKey: '', firecrawlKey: '', tavilyKey: '', wereadKey: '', trace: false,
+      searchMaxPages: 12, searchMaxPageChars: 4_000, searchAllowedDomains: [],
       ...overrides,
     },
     setPref: () => {},

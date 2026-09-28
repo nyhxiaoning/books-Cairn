@@ -15,8 +15,6 @@ import type { FetchedWebResult } from '../companion/web-tools';
 
 const ROLES: readonly UniverseRole[] = ['foundation', 'support', 'oppose', 'verify', 'apply', 'extend'];
 const MAX_QUERY_LENGTH = 200;
-const MAX_PAGES = 12;
-const MAX_PAGE_TEXT = 4_000;
 
 export interface UniverseService {
   get(bookId: string): Promise<BookUniverse | undefined>;
@@ -43,24 +41,37 @@ const queryFor = (profile: BookProfile, role: UniverseRole): string => [
   role, 'related books for', `"${profile.title}"`, profile.author, profile.category, ...profile.topics,
 ].filter((part): part is string => Boolean(part)).join(' ').slice(0, MAX_QUERY_LENGTH);
 
-const uniqueUrls = (results: readonly (readonly { readonly url: string }[])[]): readonly string[] => {
+const uniqueUrls = (
+  results: readonly (readonly { readonly url: string }[])[],
+  scope: { readonly maxPages: number; readonly allowedDomains: readonly string[] },
+): readonly string[] => {
   const urls: string[] = [];
   const seen = new Set<string>();
+  const domainAllowed = (url: string): boolean => {
+    if (scope.allowedDomains.length === 0) return true;
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      return scope.allowedDomains.some((domain) => host === domain || host.endsWith(`.${domain}`));
+    } catch {
+      return false;
+    }
+  };
   for (const result of results.flat()) {
     if (!result.url || seen.has(result.url)) continue;
+    if (!domainAllowed(result.url)) continue;
     seen.add(result.url);
     urls.push(result.url);
-    if (urls.length === MAX_PAGES) break;
+    if (urls.length === scope.maxPages) break;
   }
   return urls;
 };
 
-const evidencePage = (url: string, fetched: FetchedWebResult): PublicEvidencePage => {
+const evidencePage = (url: string, fetched: FetchedWebResult, maxChars: number): PublicEvidencePage => {
   const source = fetched.evidence.refs[0];
   return {
     title: source !== undefined && 'url' in source ? source.title || url : url,
     url: source !== undefined && 'url' in source ? source.url || url : url,
-    text: fetched.text.slice(0, MAX_PAGE_TEXT),
+    text: fetched.text.slice(0, maxChars),
   };
 };
 
@@ -120,11 +131,16 @@ export function createUniverseService(deps: UniverseServiceDependencies): Univer
     ]);
     const profile = deriveBookProfile(entry, catalog.records[bookId], notes);
     const settings = await deps.readSettings();
+    const scope = {
+      maxPages: settings.searchMaxPages,
+      maxPageChars: settings.searchMaxPageChars,
+      allowedDomains: settings.searchAllowedDomains,
+    };
     const search = deps.webSearch(settings.searchProvider, effectiveSearchKey(settings));
     const results = await Promise.all(ROLES.map((role) => search.search(queryFor(profile, role), signal)));
-    const urls = uniqueUrls(results);
+    const urls = uniqueUrls(results, scope);
     const fetched = await Promise.all(urls.map(async (url) =>
-      evidencePage(url, await deps.fetchWeb(url, {}, signal))));
+      evidencePage(url, await deps.fetchWeb(url, {}, signal), scope.maxPageChars)));
     const discovered = fetched.length === 0
       ? []
       : await discoverRelations(profile, fetched, await deps.providerFor(bookId), signal);

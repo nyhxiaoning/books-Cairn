@@ -7,6 +7,7 @@ import { useUi } from './SettingsProvider';
 import { TEXT_SIZES, THEMES, type TextSize, type ThemeChoice } from './prefs';
 import type { NarrationLanguage, ShellSettings } from './shell';
 import { Offline, Row, SecretField, Section, Segmented, Select, StackedRow, Switch } from './rows';
+import { AUTHORITATIVE_DOMAINS } from './authoritative';
 
 const LOCALE_LABEL: Readonly<Record<Locale, string>> = {
   en: 'English (US)',
@@ -225,7 +226,73 @@ export function SearchPage({ shell }: { shell?: ShellSettings }): ReactElement {
         label={t.settings.search.tavily}
         hint={t.settings.search.tavilyHint}
       />
+      <ScopeRow shell={shell} />
     </Section>
+  );
+}
+
+/** How much of the web discovery may read, and which sources it trusts. */
+function ScopeRow({ shell }: { shell: ShellSettings }): ReactElement {
+  const { t } = useUi();
+  const pagesId = useId();
+  const charsId = useId();
+  const domainsId = useId();
+
+  return (
+    <>
+      <StackedRow
+        label={t.settings.search.scopePages}
+        hint={t.settings.search.scopePagesHint}
+        htmlFor={pagesId}
+      >
+        <input
+          id={pagesId}
+          type="number" min={3} max={24} step={1}
+          value={shell.prefs.searchMaxPages}
+          onChange={(event) => shell.setPref('searchMaxPages', Number(event.currentTarget.value))}
+          className="set-input"
+        />
+      </StackedRow>
+      <StackedRow
+        label={t.settings.search.scopeChars}
+        hint={t.settings.search.scopeCharsHint}
+        htmlFor={charsId}
+      >
+        <input
+          id={charsId}
+          type="number" min={500} max={20000} step={500}
+          value={shell.prefs.searchMaxPageChars}
+          onChange={(event) => shell.setPref('searchMaxPageChars', Number(event.currentTarget.value))}
+          className="set-input"
+        />
+      </StackedRow>
+      <StackedRow
+        label={t.settings.search.scopeDomains}
+        hint={t.settings.search.scopeDomainsHint}
+        htmlFor={domainsId}
+      >
+        <textarea
+          id={domainsId}
+          rows={4}
+          className="set-input"
+          value={shell.prefs.searchAllowedDomains.join('\n')}
+          placeholder={t.settings.search.scopeDomainsPlaceholder}
+          onChange={(event) => shell.setPref(
+            'searchAllowedDomains',
+            event.currentTarget.value.split('\n').map((line) => line.trim()).filter(Boolean),
+          )}
+        />
+      </StackedRow>
+      <Row label="" hint="">
+        <button
+          type="button"
+          className="shelf-act"
+          onClick={() => shell.setPref('searchAllowedDomains', [...AUTHORITATIVE_DOMAINS])}
+        >
+          {t.settings.search.scopePreset}
+        </button>
+      </Row>
+    </>
   );
 }
 

@@ -31,6 +31,9 @@ describe('parseSettings', () => {
       tavilyKey: 'tvly-x',
       wereadKey: 'wrk-x',
       trace: true,
+      searchMaxPages: 16,
+      searchMaxPageChars: 6_000,
+      searchAllowedDomains: ['en.wikipedia.org', 'douban.com'],
     };
     expect(parseSettings(stored)).toEqual(stored);
   });

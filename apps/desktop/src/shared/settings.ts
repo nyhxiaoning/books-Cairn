@@ -138,6 +138,12 @@ export interface ShellSettingsValues {
   readonly narration: NarrationLanguage;
   readonly voices: Readonly<Record<ContentLocale, string>>;
   readonly searchProvider: 'brave' | 'firecrawl' | 'tavily';
+  /** How many public pages the discovery stage may read per build. */
+  readonly searchMaxPages: number;
+  /** Per-page text budget in characters handed to the model. */
+  readonly searchMaxPageChars: number;
+  /** Public sources discovery may cite; empty means all results are allowed. */
+  readonly searchAllowedDomains: readonly string[];
   /** Each is a key, a `$NAME` reference, or empty for none. See `resolveSecret`. */
   readonly braveKey: string;
   readonly firecrawlKey: string;
@@ -147,6 +153,12 @@ export interface ShellSettingsValues {
 }
 
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1';
+
+/**
+ * Curated high-credibility sources for book discovery. The list is a default,
+ * not a wall: the reader can extend it in settings, and an empty list means
+ * every result is allowed.
+ */
 
 export const DEFAULT_SHELL_SETTINGS: ShellSettingsValues = {
   // Nothing configured: `resolveProvider` reports not ready until a key or a codex login exists.
@@ -158,6 +170,9 @@ export const DEFAULT_SHELL_SETTINGS: ShellSettingsValues = {
   // settings file and falls back to those, and two lists would drift.
   voices: { en: DEFAULT_VOICES.en, zh: DEFAULT_VOICES.zh },
   searchProvider: 'firecrawl',
+  searchMaxPages: 12,
+  searchMaxPageChars: 4_000,
+  searchAllowedDomains: [],
   braveKey: envRef(KEY_ENV.braveKey),
   firecrawlKey: envRef(KEY_ENV.firecrawlKey),
   tavilyKey: envRef(KEY_ENV.tavilyKey),
@@ -171,6 +186,12 @@ function known(locale: ContentLocale, id: unknown): string | undefined {
 
 function str(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
+}
+
+function int(value: unknown, fallback: number, min: number, max: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(max, Math.max(min, Math.round(value)))
+    : fallback;
 }
 
 function isProviderId(value: unknown): value is ProviderId {
@@ -286,6 +307,12 @@ export function parseSettings(
       ? raw.searchProvider : raw.searchProvider === 'keenable' ? 'firecrawl'
         : typeof raw.tavilyKey === 'string' && raw.tavilyKey.trim() && !envNameOf(raw.tavilyKey)
           ? 'tavily' : fallback.searchProvider,
+    searchMaxPages: int(raw.searchMaxPages, fallback.searchMaxPages, 3, 24),
+    searchMaxPageChars: int(raw.searchMaxPageChars, fallback.searchMaxPageChars, 500, 20_000),
+    searchAllowedDomains: Array.isArray(raw.searchAllowedDomains)
+      ? raw.searchAllowedDomains.filter((d): d is string => typeof d === 'string' && d.trim().length > 0)
+        .map((d) => d.trim().toLowerCase()).slice(0, 20)
+      : fallback.searchAllowedDomains,
     braveKey: str(raw.braveKey, fallback.braveKey),
     firecrawlKey: str(raw.firecrawlKey, fallback.firecrawlKey),
     tavilyKey: str(raw.tavilyKey, fallback.tavilyKey),

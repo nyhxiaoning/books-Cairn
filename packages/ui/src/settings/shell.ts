@@ -70,6 +70,9 @@ export interface ShellPrefs {
   /** Voice id per language, e.g. `en-US-AndrewNeural`. */
   readonly voices: Readonly<Record<Locale, string>>;
   readonly searchProvider: 'brave' | 'firecrawl' | 'tavily';
+  readonly searchMaxPages: number;
+  readonly searchMaxPageChars: number;
+  readonly searchAllowedDomains: readonly string[];
   readonly braveKey: string;
   readonly firecrawlKey: string;
   readonly tavilyKey: string;
