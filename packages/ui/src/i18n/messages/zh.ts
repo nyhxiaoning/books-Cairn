@@ -49,6 +49,9 @@ export const zh: Messages = {
     brave_failed: (p: { status?: number }) => `Brave Search 返回 ${p.status ?? '?'}。`,
     weread_failed: (p: { status?: number }) => `微信读书返回 ${p.status ?? '?'}。`,
     firecrawl_failed: (p: { status?: number }) => `Firecrawl 搜索返回 ${p.status ?? '?'}。`,
+    export_failed: '导出文件写入失败。',
+    ffmpeg_missing: '合并音频需要 ffmpeg —— 请先安装 brew install ffmpeg，然后重试。',
+    no_audio: '还没有已完成的音频 —— 请先等一个站点生成完成。',
 
     offline_pick: '选择文件需要桌面应用，用 `bun run start` 启动。',
     offline_generate: '生成路径需要桌面应用，用 `bun run start` 启动。',

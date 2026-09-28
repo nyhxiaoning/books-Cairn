@@ -33,6 +33,7 @@ import { inspect, readBook, sourceOf } from './inspect';
 import { CairnError } from '@cairn/core/errors';
 import { encodingErrors } from '../shared/errors';
 import type { UniverseService } from './universe/service';
+import type { ExportService } from './export/service';
 
 
 const quietly = <T>(what: string, fallback: T) => (cause: unknown): T => {
@@ -49,6 +50,7 @@ export interface HandlerDeps {
   readonly weread: Weread;
   readonly catalog: CatalogStore;
   readonly universe: UniverseService;
+  readonly exporter: ExportService;
   readonly providerFor: (bookId: string) => Promise<LlmProvider>;
   readonly library: Pick<Library, 'list' | 'loadNotes'>;
   readonly devBuild: boolean;
@@ -62,7 +64,7 @@ export interface HandlerDeps {
 }
 
 export function createHandlers({
-  books, weread, catalog, universe, providerFor, library: bookLibrary, devBuild, menu, emit,
+  books, weread, catalog, universe, exporter, providerFor, library: bookLibrary, devBuild, menu, emit,
 }: HandlerDeps) {
   /** One reader, one conversation: a second send while a turn runs is refused. */
   let activeChat: { readonly turnId: string; readonly controller: AbortController } | undefined;
@@ -297,6 +299,27 @@ export function createHandlers({
       const opener = { darwin: 'open', win32: 'explorer' }[process.platform as string] ?? 'xdg-open';
       Bun.spawn([opener, DATA_DIR], { stdout: 'ignore', stderr: 'ignore' });
       return null;
+    },
+
+    /** Merge the book's installed station audio into one MP3 under exports/. */
+    async exportAudio(params: { bookId: string }): Promise<{ path: string; missing: readonly string[] }> {
+      if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
+      const result = await exporter.exportAudio(params.bookId);
+      const opener = { darwin: 'open', win32: 'explorer' }[process.platform as string] ?? 'xdg-open';
+      Bun.spawn([opener, result.path], { stdout: 'ignore', stderr: 'ignore' });
+      return result;
+    },
+
+    /** Write the webview-rendered slides document under exports/ and reveal it. */
+    async exportSlides(params: { bookId: string; fileName: string; html: string }): Promise<{ path: string }> {
+      if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
+      if (!params.fileName.endsWith('.html') || params.fileName.includes('/') || params.fileName.includes('\\')) {
+        throw new Error('invalid_file_name');
+      }
+      const result = await exporter.writeExport(params.bookId, params.fileName, params.html);
+      const opener = { darwin: 'open', win32: 'explorer' }[process.platform as string] ?? 'xdg-open';
+      Bun.spawn([opener, result.path], { stdout: 'ignore', stderr: 'ignore' });
+      return result;
     },
 
     /** Which model route is in force, for the settings panel to show. */

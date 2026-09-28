@@ -32,6 +32,8 @@ export type ErrorCode =
   | 'tavily_key_missing' | 'tavily_failed'
   | 'brave_key_missing' | 'brave_failed' | 'firecrawl_failed'
   | 'weread_failed'
+  // The exports folder
+  | 'export_failed' | 'ffmpeg_missing' | 'no_audio'
   // Asked of a webview with no main process behind it (`bun run dev`)
   | 'offline_pick' | 'offline_generate' | 'offline_delete'
   | 'offline_chat' | 'offline_settings'

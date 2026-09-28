@@ -57,6 +57,9 @@ export const en = {
     brave_key_missing: 'No Brave Search API key is set, so it cannot search the web.',
     brave_failed: (p: { status?: number }) => `Brave Search answered with ${p.status ?? '?'}.`,
     firecrawl_failed: (p: { status?: number }) => `Firecrawl search answered with ${p.status ?? '?'}.`,
+    export_failed: 'The export could not be written.',
+    ffmpeg_missing: 'Merging audio needs ffmpeg — install it with brew install ffmpeg, then try again.',
+    no_audio: 'No finished audio to export yet — let a station finish first.',
     weread_failed: (p: { status?: number }) => `WeChat Reading answered with ${p.status ?? '?'}.`,
 
     offline_pick: 'Choosing a file needs the desktop app — run `bun run start`.',

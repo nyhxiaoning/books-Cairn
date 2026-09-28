@@ -10,6 +10,7 @@ import { ApplicationMenu, BrowserView, BrowserWindow, Updater } from 'electrobun
 import { createBookBuilder } from '@cairn/core/books/builder';
 import { openCatalog } from '@cairn/core/store/catalog-disk';
 import { openUniverseStore } from '@cairn/core/store/universe-disk';
+import { createExportService } from './export/service';
 import { edgeTtsNarrator } from '@cairn/core/runtime';
 import { fetchWeb } from './companion/web-tools';
 import { webSearch } from './companion/search-provider';
@@ -79,11 +80,14 @@ const universe = createUniverseService({
   now: () => new Date().toISOString(),
 });
 
+const exporter = createExportService({ library, dataDir: DATA_DIR });
+
 const handlers = createHandlers({
   books,
   weread,
   catalog,
   universe,
+  exporter,
   providerFor,
   library,
   devBuild,
