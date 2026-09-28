@@ -35,6 +35,10 @@ test('nothing installed yields an empty plan', () => {
 });
 
 test('export file names carry a sanitized title and the export date', () => {
-  expect(exportFileName('Thinking, Fast & Slow!', '2026-09-28', 'mp3')).toBe('Thinking-Fast-Slow-2026-09-28.mp3');
-  expect(exportFileName('乡土中国', '2026-09-28', 'html')).toBe('Export-2026-09-28.html');
+  // The shelf name is kept readable, including non-ASCII and punctuation;
+  // only characters illegal in file names are replaced.
+  expect(exportFileName('Thinking, Fast & Slow!', '2026-09-28', 'mp3')).toBe('Thinking, Fast & Slow!-2026-09-28.mp3');
+  expect(exportFileName('乡土中国', '2026-09-28', 'html')).toBe('乡土中国-2026-09-28.html');
+  expect(exportFileName('a/b:c*d?"e<f>g|h', '2026-09-28', 'mp3')).toBe('a-b-c-d--e-f-g-h-2026-09-28.mp3');
+  expect(exportFileName('。。。', '2026-09-28', 'mp3')).toBe('。。。-2026-09-28.mp3');
 });

@@ -29,9 +29,19 @@ export function audioPlan(
   return { order, missing, listText: lines.join('\n') };
 }
 
-/** Non-ASCII titles lose their letters under the library's ASCII slug, so the date keeps the name meaningful. */
+/**
+ * Export file names follow the shelf's display name, including Chinese and
+ * other non-ASCII titles: the reader renamed the book, so the file should
+ * carry that name, not an ASCII slug that turns 世界的逻辑 into "Export".
+ * Characters unsafe in macOS/Windows file names are replaced with a dash.
+ */
 export function exportFileName(title: string, date: string, ext: 'mp3' | 'html'): string {
-  const ascii = title.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '');
-  const base = ascii.length >= 3 ? ascii.slice(0, 40) : 'Export';
+  const base = title
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^[.-]+|[.-]+$/g, '')
+    .slice(0, 80)
+    .trimEnd();
   return `${base}-${date}.${ext}`;
 }
