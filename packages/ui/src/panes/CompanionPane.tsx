@@ -6,7 +6,7 @@ import { Markdown, markCitations } from './markdown';
 
 export function CompanionPane({
   messages, pending, draftAnswer, error, errorCode, selection, collapsed = false,
-  onAsk, onCancel, onClearSelection, onJumpToChapter, onOpenShelf,
+  onAsk, onCancel, onClearSelection, onJumpToChapter, onOpenShelf, onOpenExpert,
 }: {
   messages: readonly ChatMessage[];
   pending: boolean;
@@ -45,7 +45,7 @@ export function CompanionPane({
         if (!onJumpToChapter(ref.chapter)) revealTool(citation.resultId);
       }} title={ref.title}>{t.companion.chapter(ref.chapter)}</button>;
     }
-    if (citation.source === 'shelf' && 'bookId' in ref) {
+    if (citation.source === 'shelf' && 'nodeId' in ref && 'nodeTitle' in ref) {
       return <button className="chip" type="button" key={index} onClick={() => onOpenShelf(ref.bookId, ref.nodeId)} title={`${ref.bookTitle} · ${ref.nodeTitle}`}>{`${ref.bookTitle} · ${ref.nodeTitle}`.slice(0, 32) || t.companion.readingSource}</button>;
     }
     if (citation.source === 'expert' && 'bookId' in ref && 'chapter' in ref) {
