@@ -84,6 +84,26 @@ describe('verifyBookQuotes', () => {
   });
 });
 
+describe('expert quote ownership', () => {
+  // Two books, same chapter number: the fetched text must not cross-validate.
+  const fetched = new Map([['expert-result', new Map([[2, 'Only book A says this exact sentence.']])]]);
+  const expertEvidence: EvidenceRecord[] = [
+    { resultId: 'expert-result', source: 'expert', refs: [{ bookId: 'book-a', bookTitle: 'A', chapter: 2, title: 'Two' }] },
+  ];
+
+  test('accepts an expert quote found in that book\'s fetched chapter', () => {
+    const answer = citationMarkers('A argues “Only book A says this exact sentence.” [[cite:expert-result:0]]', expertEvidence);
+    expect(() => verifyBookQuotes(answer.text, answer.citations, fetched,
+      new Map([['expert-result', 'book-a']]))).not.toThrow();
+  });
+
+  test('rejects an expert quote absent from that book\'s fetched chapter', () => {
+    const answer = citationMarkers('A argues “Invented words never appeared.” [[cite:expert-result:0]]', expertEvidence);
+    expect(() => verifyBookQuotes(answer.text, answer.citations, fetched,
+      new Map([['expert-result', 'book-a']]))).toThrow(CompanionRunError);
+  });
+});
+
 test('archived evidence with no retained tool result cannot be cited', () => {
   const archived = {
     pathGeneratedAt: 'generation-1',
