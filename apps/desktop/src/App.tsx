@@ -22,7 +22,7 @@ import {
   exportAudio, exportSlides,
 } from './bridge';
 import { shortcuts } from './shortcut';
-import { useBundle } from './useBundle';
+import { loadBundle, useBundle } from './useBundle';
 import { useShellSettings } from './useShellSettings';
 import { applyCompanionEvent, beginCompanionTurn, emptyCompanionView } from './companion-state';
 import type { BookMeta } from './shared/types';
@@ -307,14 +307,15 @@ export function App(): ReactElement {
   }, []);
 
   const exportBookSlides = useCallback(async (id: string) => {
-    // Slides render from the open bundle only: exporting a book that is not on
-    // screen would need a second loader for no real reader gain.
-    if (!bundle || bundle.path.bookId !== id) throw new CairnError('no_audio');
-    const html = await renderSlidesHtml(bundle.path, bundle.decks);
+    setExportNotice(undefined);
+    const target = bundle?.path.bookId === id
+      ? { path: bundle.path, decks: bundle.decks }
+      : await loadBundle(id, await libraryBase());
+    const html = await renderSlidesHtml(target.path, target.decks);
     if (!html) throw new CairnError('no_audio');
-    const result = await exportSlides(id, exportFileName(bundle.path.title, new Date().toISOString().slice(0, 10), 'html'), html);
+    const result = await exportSlides(id, exportFileName(target.path.title, new Date().toISOString().slice(0, 10), 'html'), html);
     setExportNotice({ path: result.path });
-  }, [bundle]);
+  }, [bundle, t]);
 
   const saveCatalog = useCallback(async (id: string, patch: CatalogPatch) => {
     const next = await patchCatalog(id, patch);
@@ -417,7 +418,10 @@ export function App(): ReactElement {
               console.error('exportAudio', cause);
               setExportNotice({ path: errorText(payloadOf(cause), t), missing: undefined });
             }); },
-            onExportSlides: (id: string) => { openBook(id); },
+            onExportSlides: (id: string) => { exportBookSlides(id).catch((cause: unknown) => {
+              console.error('exportSlides', cause);
+              setExportNotice({ path: errorText(payloadOf(cause), t) });
+            }); },
           } : {})}
           onSettings={() => setSettingsOpen(true)}
           {...(inShell ? { onDelete: removeBook } : {})}

@@ -119,6 +119,27 @@ export function useBundle(bookId: string | undefined, base: string | undefined):
   return { bundle, error, reload };
 }
 
+/**
+ * Load one book's full bundle outside the hook's lifecycle — the slides export
+ * needs the decks of a book the player may not have open. Same files, same
+ * legacy handling, just one shot instead of a poll.
+ */
+export async function loadBundle(bookId: string, base: string): Promise<Bundle> {
+  const index = await fetchJson<DeckIndex>(base, deckIndexFile(bookId)).catch(() => undefined);
+  const path = await fetchJson<Path>(base, bookFile(bookId, 'path.json'));
+  if (!index) {
+    const legacy = await fetchJson<NodeDeck[]>(base, bookFile(bookId, LEGACY_DECKS))
+      .catch(() => [] as NodeDeck[]);
+    return { path, decks: new Map(legacy.map((deck) => [deck.nodeId, deck])), failed: new Set(), complete: true };
+  }
+  const fetched = await Promise.all(
+    index.ready.map(async (id) =>
+      [id, await fetchJson<NodeDeck>(base, deckFile(bookId, id)).catch(() => undefined)] as const),
+  );
+  const decks = new Map(fetched.flatMap(([id, deck]) => (deck ? [[id, deck] as const] : [])));
+  return { path, decks, failed: new Set(index.failed), complete: index.complete };
+}
+
 async function fetchJson<T>(base: string, path: string): Promise<T> {
   const res = await fetch(`${base}/${path}`);
   if (!res.ok) throw new CairnError('bundle_failed', { path, status: res.status });
