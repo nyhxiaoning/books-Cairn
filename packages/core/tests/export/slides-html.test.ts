@@ -10,6 +10,7 @@ const base = { title: 'Thinking', author: 'A. Writer', exportDate: '2026-09-28',
 
 test('assembles a cover, one section per station and print css', () => {
   const html = slidesDocument({ ...base, stations });
+  if (!html) throw new Error('expected a document');
   expect(html).toContain('Thinking');
   expect(html).toContain('A. Writer');
   expect(html).toContain('2026-09-28');
@@ -21,6 +22,7 @@ test('assembles a cover, one section per station and print css', () => {
 
 test('escapes metadata but keeps slide markup verbatim', () => {
   const html = slidesDocument({ ...base, stations });
+  if (!html) throw new Error('expected a document');
   expect(html).toContain('Start &lt;here&gt;');
   expect(html).toContain('<div class="slide">A</div>');
 });

@@ -5,8 +5,8 @@ import { audioPlan, exportFileName } from '../../src/export/audio-plan';
 const path: Path = {
   bookId: 'book-a', title: 'Thinking', type: 'knowledge',
   nodes: [
-    { id: 'n0', idx: 0, title: 'Start', kind: 'standard', brief: '', keyPoints: [], sourceChapters: [1], estMinutes: 2 },
-    { id: 'n1', idx: 1, title: 'Middle', kind: 'standard', brief: '', keyPoints: [], sourceChapters: [2], estMinutes: 3 },
+    { id: 'n0', idx: 0, title: 'Start', kind: 'concept', brief: '', keyPoints: [], sourceChapters: [1], estMinutes: 2 },
+    { id: 'n1', idx: 1, title: 'Middle', kind: 'argument', brief: '', keyPoints: [], sourceChapters: [2], estMinutes: 3 },
     { id: 'n2', idx: 2, title: 'End', kind: 'recap', brief: '', keyPoints: [], sourceChapters: [2], estMinutes: 1 },
   ],
   stages: [], totalMinutes: 6, generatedAt: '2026-09-28T00:00:00Z',
