@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactElement } from 'react';
 import { slidesDocument } from '@cairn/core/export/slides-html';
 import type { NodeDeck, Path } from '@cairn/core/types';
-import { SlideView } from '@cairn/ui';
+import { SettingsProvider, SlideView } from '@cairn/ui';
 
 /**
  * The player's own renderer, captured as static markup. The CSS is read from
@@ -14,7 +14,11 @@ export async function renderSlidesHtml(path: Path, decks: ReadonlyMap<string, No
     if (deck === undefined) return [];
     const slideMarkup = deck.slides.map((slide) =>
       renderToStaticMarkup(
-        <SlideView slide={slide} /> satisfies ReactElement,
+        // SlideView's chrome and quote layouts read the reader's locale
+        // through useT; outside the app tree they need their own provider.
+        <SettingsProvider>
+          <SlideView slide={slide} />
+        </SettingsProvider> satisfies ReactElement,
       ),
     );
     const narrationText = deck.narration.map((cue) => cue.text).join(' ');
