@@ -44,6 +44,7 @@ export function App(): ReactElement {
   const [details, setDetails] = useState<DetailsTarget>();
   const [editingCatalog, setEditingCatalog] = useState<string>();
   const [focusCatalogEditor, setFocusCatalogEditor] = useState(false);
+  const [exportNotice, setExportNotice] = useState<{ readonly path: string; readonly missing?: number }>();
   const [detailsMeta, setDetailsMeta] = useState<Readonly<Record<string, BookMeta>>>({});
   const [universeView, setUniverseView] = useState<{
     readonly bookId: string;
@@ -300,7 +301,9 @@ export function App(): ReactElement {
   }, [t]);
 
   const exportBookAudio = useCallback(async (id: string) => {
-    await exportAudio(id);
+    setExportNotice(undefined);
+    const result = await exportAudio(id);
+    setExportNotice({ path: result.path, ...(result.missing.length > 0 ? { missing: result.missing.length } : {}) });
   }, []);
 
   const exportBookSlides = useCallback(async (id: string) => {
@@ -309,7 +312,8 @@ export function App(): ReactElement {
     if (!bundle || bundle.path.bookId !== id) throw new CairnError('no_audio');
     const html = await renderSlidesHtml(bundle.path, bundle.decks);
     if (!html) throw new CairnError('no_audio');
-    await exportSlides(id, exportFileName(bundle.path.title, new Date().toISOString().slice(0, 10), 'html'), html);
+    const result = await exportSlides(id, exportFileName(bundle.path.title, new Date().toISOString().slice(0, 10), 'html'), html);
+    setExportNotice({ path: result.path });
   }, [bundle]);
 
   const saveCatalog = useCallback(async (id: string, patch: CatalogPatch) => {
@@ -339,6 +343,21 @@ export function App(): ReactElement {
 
   const modal = (
     <>
+      {exportNotice && (
+        <div className="modal-scrim" onClick={() => setExportNotice(undefined)}>
+          <div className="modal export-notice" role="alertdialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <h2>{t.home.exportDone}</h2>
+            <p className="modal-hint">{t.home.exportWhere}</p>
+            <p className="export-path">{exportNotice.path}</p>
+            {exportNotice.missing !== undefined && (
+              <p className="modal-hint">{t.home.exportPartial(exportNotice.missing)}</p>
+            )}
+            <div className="details-actions">
+              <button type="button" className="primary" onClick={() => setExportNotice(undefined)}>{t.details.close}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {adding && <AddBook autoPick onDone={onAdded} onClose={() => setAdding(false)} />}
       {settingsOpen && (
         <SettingsPanel shell={shell} onClose={() => setSettingsOpen(false)} />
@@ -394,7 +413,10 @@ export function App(): ReactElement {
           onEditCatalog={(id) => { openDetails(id); setEditingCatalog(id); }}
           onBuildUniverse={(id) => openDetails(id, 'universe')}
           {...(inShell ? {
-            onExportAudio: (id: string) => { void exportBookAudio(id).catch((cause: unknown) => console.error('exportAudio', cause)); },
+            onExportAudio: (id: string) => { exportBookAudio(id).catch((cause: unknown) => {
+              console.error('exportAudio', cause);
+              setExportNotice({ path: errorText(payloadOf(cause), t), missing: undefined });
+            }); },
             onExportSlides: (id: string) => { openBook(id); },
           } : {})}
           onSettings={() => setSettingsOpen(true)}

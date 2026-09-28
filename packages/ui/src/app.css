@@ -345,6 +345,11 @@ body {
 .details-catalog dt { color: var(--dim); }
 .details-intro { grid-column: 1 / -1; color: var(--dim); font-size: calc(13px * var(--text-scale, 1)); line-height: 1.6; }
 .details-export-row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.export-path {
+  font-family: ui-monospace, monospace; font-size: calc(12px * var(--text-scale, 1));
+  padding: 8px 10px; background: var(--soft); border-radius: 6px;
+  word-break: break-all; user-select: all;
+}
 .details-overview .shelf-act { justify-self: start; }
 .details-empty { color: var(--dim); font-size: calc(13px * var(--text-scale, 1)); line-height: 1.6; padding: 24px 0; }
 .category-editor { width: 420px; }

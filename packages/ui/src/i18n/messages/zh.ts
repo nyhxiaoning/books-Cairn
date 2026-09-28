@@ -169,6 +169,9 @@ export const zh: Messages = {
     settings: '设置',
     exportAudio: '导出音频',
     exportSlides: '导出幻灯片',
+    exportDone: '导出完成',
+    exportWhere: '文件已保存到 Mac 上这个文件夹，并已在访达中打开：',
+    exportPartial: (n: number) => `有 ${n} 个站点还没有音频，未包含在本次导出中。`,
   },
 
   details: {
