@@ -3,6 +3,7 @@ import type { BudgetId } from '@cairn/core/pipeline/budget';
 import type { CatalogFile, CatalogPatch, CatalogSuggestionResult } from '@cairn/core/catalog/types';
 import type { LibraryEntry } from '@cairn/core/store/library';
 import type { ChatSession } from '@cairn/core/companion/types';
+import type { BookUniverse, UniverseRole } from '@cairn/core/universe/types';
 import type { CompanionEvent } from './companion-events';
 import type { ContentLocale, ModelStatus, ShellSettingsValues, UiLocale } from './settings';
 import type { BookMeta, BookPreview, DeckStatus, Progress } from './types';
@@ -36,6 +37,9 @@ export type BunSchema = RPCSchema<{
     catalogGet: { params: void; response: CatalogFile };
     catalogPatch: { params: { bookId: string; patch: CatalogPatch }; response: CatalogFile };
     catalogSuggest: { params: { bookId: string }; response: CatalogSuggestionResult };
+    universeGet: { params: { bookId: string }; response: BookUniverse | null };
+    universeBuild: { params: { bookId: string }; response: BookUniverse };
+    universePatch: { params: { bookId: string; change: UniverseChange }; response: BookUniverse };
     markBookFinished: { params: { bookId: string; nodeId: string }; response: boolean };
     /* ---- WeChat Reading; each answers empty when no key is set ---- */
     wereadQuotes: { params: { title: string; author?: string }; response: readonly string[] };
@@ -85,6 +89,17 @@ export type WebviewSchema = RPCSchema<{
 }>;
 
 export type CairnRPC = { bun: BunSchema; webview: WebviewSchema };
+
+/** Reader-owned universe edits that can cross the process boundary safely. */
+export type UniverseChange =
+  | { readonly type: 'setRole'; readonly id: string; readonly role: UniverseRole }
+  | { readonly type: 'dismiss'; readonly id: string }
+  | {
+    readonly type: 'add';
+    readonly title: string;
+    readonly authors: readonly string[];
+    readonly role: UniverseRole;
+  };
 
 /** One request's params, for the places that name them outside a call. */
 export type RequestParams<K extends keyof BunSchema['requests']> = BunSchema['requests'][K]['params'];

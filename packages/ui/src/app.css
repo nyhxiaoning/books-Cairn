@@ -301,7 +301,7 @@ body {
 .modal-error { font-size: calc(12.5px * var(--text-scale, 1)); color: var(--accent); margin-top: 14px; line-height: 1.7; }
 
 /* ---- book details and catalog editor ---- */
-.book-details { width: 620px; min-height: 360px; }
+.book-details { width: 720px; min-height: 360px; max-height: 88vh; overflow-y: auto; }
 .details-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .details-close {
   font: inherit; font-size: calc(12px * var(--text-scale, 1)); color: var(--dim); background: none;
@@ -328,6 +328,63 @@ body {
 .catalog-field small { color: var(--dim); font-size: calc(11.5px * var(--text-scale, 1)); }
 .details-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; }
 .details-suggest { padding-top: 0; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+.universe-empty { display: grid; justify-items: start; gap: 12px; padding: 18px 0; }
+.universe-empty h3 { font-size: calc(15px * var(--text-scale, 1)); }
+.universe-empty p, .universe-status, .universe-error, .universe-honest, .universe-verified {
+  font-size: calc(12.5px * var(--text-scale, 1)); line-height: 1.65; color: var(--dim);
+}
+.universe-error { color: var(--accent); margin-bottom: 12px; }
+.universe-honest { padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); }
+.universe-verified { margin-bottom: 12px; }
+.universe-groups { display: grid; gap: 18px; margin-top: 16px; }
+.universe-group h3 {
+  margin-bottom: 7px; color: var(--dim); font-size: calc(10px * var(--text-scale, 1));
+  font-weight: 640; letter-spacing: .075em; text-transform: uppercase;
+}
+.universe-group ul, .universe-experts, .universe-evidence, .universe-sources { list-style: none; }
+.universe-group > ul, .universe-experts, .universe-evidence { display: grid; gap: 8px; }
+.universe-group > ul > li, .universe-experts > li, .universe-evidence > li {
+  border: 1px solid var(--line); border-radius: 9px; padding: 11px 12px; background: var(--card);
+}
+.universe-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.universe-card strong { font-size: calc(13px * var(--text-scale, 1)); }
+.universe-card p { margin-top: 4px; color: var(--dim); font-size: calc(11.5px * var(--text-scale, 1)); line-height: 1.55; }
+.universe-badge {
+  flex: 0 0 auto; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--dim); font-size: calc(9.5px * var(--text-scale, 1)); font-weight: 620; letter-spacing: .03em;
+}
+.universe-badge.sourced { color: var(--accent); border-color: var(--accent); }
+.universe-badge.mapped, .universe-badge.finished { color: var(--done); }
+.universe-sources { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 7px; }
+.universe-sources a { color: var(--accent); font-size: calc(11px * var(--text-scale, 1)); text-underline-offset: 2px; }
+.universe-card-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.universe-card-actions select, .universe-manual input, .universe-manual select {
+  font: inherit; font-size: calc(11.5px * var(--text-scale, 1)); color: var(--ink); background: var(--chrome);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px;
+}
+.universe-card-actions button {
+  font: inherit; font-size: calc(11px * var(--text-scale, 1)); color: var(--dim);
+  border: 0; background: none; cursor: pointer; text-decoration: underline;
+}
+.universe-card-actions button:hover { color: var(--ink); }
+.universe-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.universe-manual {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px;
+  align-items: end; margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 9px;
+}
+.universe-manual label { display: grid; gap: 5px; color: var(--dim); font-size: calc(11px * var(--text-scale, 1)); }
+.universe-manual .shelf-act { height: 30px; }
+
+@media (max-width: 680px) {
+  .universe-manual { grid-template-columns: minmax(0, 1fr); }
+  .universe-card-actions { align-items: stretch; flex-direction: column; }
+}
 
 @media (max-width: 520px) {
   .details-tabs { overflow-x: auto; }

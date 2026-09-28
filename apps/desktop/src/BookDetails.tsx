@@ -4,18 +4,27 @@ import type { CatalogRecord } from '@cairn/core/catalog/types';
 import type { LibraryEntry } from '@cairn/core/store/library';
 import { useT } from '@cairn/ui';
 import type { BookMeta } from './shared/types';
+import { UniversePanel, type UniversePanelState } from './UniversePanel';
+import type { UniverseChange } from './shared/schema';
 
 export type DetailsSection = 'overview' | 'universe' | 'experts' | 'evidence';
 
 const SECTIONS: readonly DetailsSection[] = ['overview', 'universe', 'experts', 'evidence'];
 
-export function BookDetails({ book, meta, record, base, section = 'overview', focusCatalogEditor = false, onEditCatalog, onClose }: {
+export function BookDetails({
+  book, meta, record, base, section = 'overview', focusCatalogEditor = false,
+  universeState = { status: 'empty' }, onBuildUniverse = () => undefined,
+  onPatchUniverse = () => undefined, onEditCatalog, onClose,
+}: {
   book: LibraryEntry;
   meta?: BookMeta;
   record?: CatalogRecord;
   base?: string;
   section?: DetailsSection;
   focusCatalogEditor?: boolean;
+  universeState?: UniversePanelState;
+  onBuildUniverse?: () => void | Promise<void>;
+  onPatchUniverse?: (change: UniverseChange) => void | Promise<void>;
   onEditCatalog: () => void;
   onClose: () => void;
 }): ReactElement {
@@ -73,9 +82,8 @@ export function BookDetails({ book, meta, record, base, section = 'overview', fo
             {meta?.intro && <p className="details-intro">{meta.intro}</p>}
             <button ref={editCatalog} type="button" className="shelf-act" onClick={onEditCatalog}>{t.details.editCatalog}</button>
           </div>
-        ) : (
-          <div className="details-empty" role="tabpanel">{t.details.empty[active]}</div>
-        )}
+        ) : <UniversePanel section={active} state={universeState}
+          onBuild={onBuildUniverse} onPatch={onPatchUniverse} />}
       </section>
     </div>
   );

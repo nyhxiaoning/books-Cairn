@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import { payloadOf } from '@cairn/core/errors';
 import { audioFile } from '@cairn/core/store/library';
 import type { LibraryEntry } from '@cairn/core/store/library';
 import { emptyCatalog, type CatalogFile, type CatalogPatch } from '@cairn/core/catalog/types';
@@ -7,7 +8,7 @@ import { stationHeat } from '@cairn/core/store/asks';
 import {
   CompanionPane, DeckPane, StagePane, Splitter, PanelToggle, SettingsPanel, useSplit, useResume,
   useUi, columnWidth,
-  DEFAULT_LEFT, DEFAULT_RIGHT, LEFT_LIMITS, RIGHT_LIMITS,
+  DEFAULT_LEFT, DEFAULT_RIGHT, LEFT_LIMITS, RIGHT_LIMITS, errorText,
 } from '@cairn/ui';
 import { AddBook } from './AddBook';
 import { BookDetails, type DetailsSection } from './BookDetails';
@@ -17,12 +18,15 @@ import {
   bookMeta, chatCancel, chatClear, chatHistory, chatSend, deleteBook, focusStation, getCatalog, inShell, libraryBase,
   listBooks, onCompanionEvent, onDeckStatus, onOpenSettings, markBookFinished, resumeBook, retryBook, setMenuLocale,
   suggestCatalogFor, patchCatalog, wereadStart,
+  universeBuild, universeGet, universePatch,
 } from './bridge';
 import { shortcuts } from './shortcut';
 import { useBundle } from './useBundle';
 import { useShellSettings } from './useShellSettings';
 import { applyCompanionEvent, beginCompanionTurn, emptyCompanionView } from './companion-state';
 import type { BookMeta } from './shared/types';
+import type { UniversePanelState } from './UniversePanel';
+import type { UniverseChange } from './shared/schema';
 
 /** Typed in the companion's box, it clears the conversation instead of asking the model. */
 const CLEAR_COMMAND = '/clear';
@@ -38,6 +42,10 @@ export function App(): ReactElement {
   const [editingCatalog, setEditingCatalog] = useState<string>();
   const [focusCatalogEditor, setFocusCatalogEditor] = useState(false);
   const [detailsMeta, setDetailsMeta] = useState<Readonly<Record<string, BookMeta>>>({});
+  const [universeView, setUniverseView] = useState<{
+    readonly bookId: string;
+    readonly state: UniversePanelState;
+  }>();
   /** Port and token are new on every launch, so every URL is built from this. */
   const [base, setBase] = useState<string>();
   const { bundle, error, reload } = useBundle(bookId, base);
@@ -239,7 +247,54 @@ export function App(): ReactElement {
     void bookMeta(id).then((meta) => {
       if (meta) setDetailsMeta((current) => ({ ...current, [id]: meta }));
     });
-  }, []);
+    setUniverseView({ bookId: id, state: { status: 'loading' } });
+    void universeGet(id).then((next) => {
+      setUniverseView((current) => current?.bookId === id
+        ? { bookId: id, state: next ? { status: 'ready', universe: next } : { status: 'empty' } }
+        : current);
+    }).catch((cause: unknown) => {
+      setUniverseView((current) => current?.bookId === id
+        ? { bookId: id, state: { status: 'failed', message: errorText(payloadOf(cause), t) } }
+        : current);
+    });
+  }, [t]);
+
+  const buildUniverse = useCallback(async (id: string) => {
+    const previous = universeView?.bookId === id ? universeView.state : undefined;
+    const prior = previous && 'universe' in previous ? previous.universe : undefined;
+    setUniverseView({ bookId: id, state: { status: 'building', ...(prior ? { universe: prior } : {}) } });
+    try {
+      const next = await universeBuild(id);
+      setUniverseView((current) => current?.bookId === id
+        ? { bookId: id, state: { status: 'ready', universe: next } }
+        : current);
+    } catch (cause) {
+      setUniverseView((current) => current?.bookId === id
+        ? {
+          bookId: id,
+          state: { status: 'failed', message: errorText(payloadOf(cause), t), ...(prior ? { universe: prior } : {}) },
+        }
+        : current);
+    }
+  }, [t, universeView]);
+
+  const patchUniverse = useCallback(async (id: string, change: UniverseChange) => {
+    try {
+      const next = await universePatch(id, change);
+      setUniverseView((current) => current?.bookId === id
+        ? { bookId: id, state: { status: 'ready', universe: next } }
+        : current);
+    } catch (cause) {
+      setUniverseView((current) => {
+        if (current?.bookId !== id) return current;
+        const prior = 'universe' in current.state ? current.state.universe : undefined;
+        return {
+          bookId: id,
+          state: { status: 'failed', message: errorText(payloadOf(cause), t), ...(prior ? { universe: prior } : {}) },
+        };
+      });
+    }
+  }, [t]);
 
   const saveCatalog = useCallback(async (id: string, patch: CatalogPatch) => {
     const next = await patchCatalog(id, patch);
@@ -290,6 +345,11 @@ export function App(): ReactElement {
           base={base}
           section={details.section}
           focusCatalogEditor={focusCatalogEditor}
+          universeState={universeView?.bookId === details.bookId
+            ? universeView.state
+            : { status: 'loading' }}
+          onBuildUniverse={() => buildUniverse(details.bookId)}
+          onPatchUniverse={(change) => patchUniverse(details.bookId, change)}
           onEditCatalog={() => {
             setFocusCatalogEditor(false);
             setEditingCatalog(details.bookId);

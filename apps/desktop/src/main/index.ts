@@ -83,6 +83,7 @@ const handlers = createHandlers({
   books,
   weread,
   catalog,
+  universe,
   providerFor,
   library,
   devBuild,

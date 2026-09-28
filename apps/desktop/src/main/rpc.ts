@@ -7,6 +7,8 @@ import type { CatalogFile, CatalogPatch, CatalogSuggestionResult } from '@cairn/
 import { suggestCatalog } from '@cairn/core/catalog/classify';
 import type { LlmProvider } from '@cairn/core/llm/types';
 import { isBookId, type LibraryEntry } from '@cairn/core/store/library';
+import { bookIdentity } from '@cairn/core/universe/identity';
+import { parseUniverse, type BookUniverse, type UniverseRole } from '@cairn/core/universe/types';
 import type { CatalogStore } from '@cairn/core/store/catalog-disk';
 import type { Library } from '@cairn/core/store/library-disk';
 import { rm } from 'node:fs/promises';
@@ -24,12 +26,13 @@ import { loadSession, saveSession } from './companion/session';
 import { saveWorking } from './companion/working';
 import { runTurn } from './companion/run';
 import type { CompanionEvent } from '../shared/companion-events';
-import type { RequestParams } from '../shared/schema';
+import type { RequestParams, UniverseChange } from '../shared/schema';
 import { modelStatus } from './provider';
 import type { BookMeta, BookPreview, Progress } from '../shared/types';
 import { inspect, readBook, sourceOf } from './inspect';
 import { CairnError } from '@cairn/core/errors';
 import { encodingErrors } from '../shared/errors';
+import type { UniverseService } from './universe/service';
 
 
 const quietly = <T>(what: string, fallback: T) => (cause: unknown): T => {
@@ -45,6 +48,7 @@ export interface HandlerDeps {
   readonly books: BookBuilder;
   readonly weread: Weread;
   readonly catalog: CatalogStore;
+  readonly universe: UniverseService;
   readonly providerFor: (bookId: string) => Promise<LlmProvider>;
   readonly library: Pick<Library, 'list' | 'loadNotes'>;
   readonly devBuild: boolean;
@@ -58,7 +62,7 @@ export interface HandlerDeps {
 }
 
 export function createHandlers({
-  books, weread, catalog, providerFor, library: bookLibrary, devBuild, menu, emit,
+  books, weread, catalog, universe, providerFor, library: bookLibrary, devBuild, menu, emit,
 }: HandlerDeps) {
   /** One reader, one conversation: a second send while a turn runs is refused. */
   let activeChat: { readonly turnId: string; readonly controller: AbortController } | undefined;
@@ -149,6 +153,25 @@ export function createHandlers({
         catalog: await catalog.patch(params.bookId, { ...suggestion, source: 'automatic' }),
         suggestion,
       };
+    },
+
+    async universeGet(params: { bookId: string }): Promise<BookUniverse | null> {
+      if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
+      return (await universe.get(params.bookId)) ?? null;
+    },
+
+    async universeBuild(params: { bookId: string }): Promise<BookUniverse> {
+      if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
+      return universe.build(params.bookId);
+    },
+
+    async universePatch(params: { bookId: string; change: UniverseChange }): Promise<BookUniverse> {
+      if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
+      const change = parseUniverseChange(params.change);
+      if (change === undefined) throw new Error('invalid_universe_change');
+      const next = await universe.patch(params.bookId, (current) => applyUniverseChange(current, change));
+      if (next === undefined) throw new Error('universe_not_found');
+      return next;
     },
 
     /* ---- WeChat Reading: an extra, so a failure is logged and reads as nothing ---- */
@@ -308,3 +331,71 @@ const SAMPLE: Readonly<Record<ContentLocale, string>> = {
   en: 'A chapter that cannot make one thing clear is worth nothing.',
   zh: '一章讲不清一件事，就什么都不是。',
 };
+
+const UNIVERSE_ROLES: readonly UniverseRole[] = ['foundation', 'support', 'oppose', 'verify', 'apply', 'extend'];
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+function parseUniverseChange(value: unknown): UniverseChange | undefined {
+  if (!isRecord(value) || typeof value.type !== 'string') return undefined;
+  if (value.type === 'setRole' && typeof value.id === 'string' &&
+    UNIVERSE_ROLES.includes(value.role as UniverseRole)) {
+    return { type: 'setRole', id: value.id, role: value.role as UniverseRole };
+  }
+  if (value.type === 'dismiss' && typeof value.id === 'string') return { type: 'dismiss', id: value.id };
+  if (value.type === 'add' && typeof value.title === 'string' && Array.isArray(value.authors) &&
+    value.authors.every((author) => typeof author === 'string') &&
+    UNIVERSE_ROLES.includes(value.role as UniverseRole)) {
+    return {
+      type: 'add', title: value.title, authors: value.authors as readonly string[],
+      role: value.role as UniverseRole,
+    };
+  }
+  return undefined;
+}
+
+function applyUniverseChange(current: BookUniverse, change: UniverseChange): BookUniverse {
+  if (change.type === 'setRole') {
+    return requireUniverse({
+      ...current,
+      books: current.books.map((book) => book.id === change.id
+        ? { ...book, role: change.role, roleEdited: true }
+        : book),
+    });
+  }
+  if (change.type === 'dismiss') {
+    const target = current.books.find((book) => book.id === change.id);
+    if (target === undefined) return current;
+    return requireUniverse({
+      ...current,
+      books: current.books.filter((book) => book.id !== change.id),
+      dismissed: target.origin === 'generated'
+        ? [...new Set([...current.dismissed, bookIdentity(target)])]
+        : current.dismissed,
+    });
+  }
+  const title = change.title.trim();
+  const authors = change.authors.map((author) => author.trim()).filter(Boolean);
+  return requireUniverse({
+    ...current,
+    books: [...current.books, {
+      id: `manual-${crypto.randomUUID()}`,
+      title,
+      authors,
+      role: change.role,
+      sharedTopics: [],
+      rationale: title,
+      sources: [],
+      evidence: 'candidate',
+      origin: 'manual',
+      roleEdited: true,
+    }],
+  });
+}
+
+function requireUniverse(value: unknown): BookUniverse {
+  const parsed = parseUniverse(value);
+  if (parsed === undefined) throw new Error('invalid_universe_change');
+  return parsed;
+}

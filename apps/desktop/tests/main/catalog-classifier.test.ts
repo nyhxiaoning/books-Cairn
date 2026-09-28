@@ -5,6 +5,7 @@ import type { LlmProvider } from '@cairn/core/llm/types';
 import type { CatalogStore } from '@cairn/core/store/catalog-disk';
 import type { Library } from '@cairn/core/store/library-disk';
 import type { Weread } from '../../src/main/weread/service';
+import type { UniverseService } from '../../src/main/universe/service';
 import { createHandlers } from '../../src/main/rpc';
 
 const automatic: CatalogFile = {
@@ -46,6 +47,7 @@ function handlersFor(catalog: CatalogStore, response: string) {
     books: {} as BookBuilder,
     weread: {} as Weread,
     catalog,
+    universe: {} as UniverseService,
     providerFor: async () => provider,
     library,
     devBuild: false,

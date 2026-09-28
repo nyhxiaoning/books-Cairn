@@ -6,11 +6,12 @@ import {
   emptyCatalog, type CatalogFile, type CatalogPatch, type CatalogSuggestionResult,
 } from '@cairn/core/catalog/types';
 import { LIBRARY_INDEX, type LibraryEntry } from '@cairn/core/store/library';
+import type { BookUniverse } from '@cairn/core/universe/types';
 import { decodeError } from './shared/errors';
 import type {
   ContentLocale, ModelStatus, ShellSettingsValues, UiLocale,
 } from './shared/settings';
-import type { CairnRPC, RequestParams } from './shared/schema';
+import type { CairnRPC, RequestParams, UniverseChange } from './shared/schema';
 import type { BookMeta, BookPreview, DeckStatus, Progress } from './shared/types';
 
 /**
@@ -159,6 +160,23 @@ export async function patchCatalog(bookId: string, patch: CatalogPatch): Promise
 export async function suggestCatalogFor(bookId: string): Promise<CatalogSuggestionResult> {
   if (!inShell) throw offline('offline_delete');
   return (await connect()).request.catalogSuggest({ bookId }, ANSWER_LIMIT).catch(rethrow);
+}
+
+export async function universeGet(bookId: string): Promise<BookUniverse | undefined> {
+  if (!inShell) return undefined;
+  return (await connect()).request.universeGet({ bookId }, POLL_LIMIT)
+    .then((value) => value ?? undefined).catch(rethrow);
+}
+
+export async function universeBuild(bookId: string): Promise<BookUniverse> {
+  if (!inShell) throw offline('offline_delete');
+  return (await connect()).request.universeBuild({ bookId }, ANSWER_LIMIT).catch(rethrow);
+}
+
+export async function universePatch(bookId: string, change: UniverseChange): Promise<BookUniverse> {
+  if (!inShell) throw offline('offline_delete');
+  return (await connect()).request.universePatch({ bookId, change }, POLL_LIMIT)
+    .catch(rethrow);
 }
 
 /**
