@@ -105,6 +105,8 @@ export function createHandlers({
           latest = p;
           emit.progress(p);
         });
+        // A new mapped book may complete candidates in existing universes.
+        await universe.relink().catch(quietly('universe relink failed', undefined));
         return entry;
       } finally {
         latest = undefined;
@@ -241,6 +243,7 @@ export function createHandlers({
         const removed = await books.remove(params.bookId);
         if (!removed) throw new CairnError('book_not_listed', { id: params.bookId });
         await catalog.remove(params.bookId).catch(quietly('catalog cleanup failed', undefined));
+        await universe.relink().catch(quietly('universe relink failed', undefined));
         return true;
       } catch (cause) {
         // The terminal gets the stack; the reader gets a code the player words.

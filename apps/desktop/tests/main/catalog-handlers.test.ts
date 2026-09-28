@@ -22,7 +22,12 @@ function handlersFor(fakeCatalog: CatalogStore, books: BookBuilder = {} as BookB
     books,
     weread: {} as Weread,
     catalog: fakeCatalog,
-    universe: {} as UniverseService,
+    universe: {
+      get: async () => undefined,
+      build: async () => { throw new Error('not used'); },
+      patch: async () => undefined,
+      relink: async () => undefined,
+    } as UniverseService,
     providerFor: async () => ({}) as never,
     library: {} as Pick<Library, 'list' | 'loadNotes'>,
     devBuild: false,
