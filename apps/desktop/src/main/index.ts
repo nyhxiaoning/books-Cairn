@@ -66,6 +66,8 @@ const handlers = createHandlers({
   books,
   weread,
   catalog,
+  providerFor,
+  library,
   devBuild,
   menu,
   emit: {

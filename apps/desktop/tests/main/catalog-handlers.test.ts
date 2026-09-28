@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import type { BookBuilder } from '@cairn/core/books/builder';
 import type { CatalogFile, CatalogPatch } from '@cairn/core/catalog/types';
 import type { CatalogStore } from '@cairn/core/store/catalog-disk';
+import type { Library } from '@cairn/core/store/library-disk';
 import type { Weread } from '../../src/main/weread/service';
 import { createHandlers } from '../../src/main/rpc';
 
@@ -20,6 +21,8 @@ function handlersFor(fakeCatalog: CatalogStore, books: BookBuilder = {} as BookB
     books,
     weread: {} as Weread,
     catalog: fakeCatalog,
+    providerFor: async () => ({}) as never,
+    library: {} as Pick<Library, 'list' | 'loadNotes'>,
     devBuild: false,
     menu: () => undefined,
     emit: { progress: () => undefined, companion: () => undefined },

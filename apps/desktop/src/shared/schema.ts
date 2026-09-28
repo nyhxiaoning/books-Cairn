@@ -35,6 +35,7 @@ export type BunSchema = RPCSchema<{
     retryBook: { params: { bookId: string }; response: boolean };
     catalogGet: { params: void; response: CatalogFile };
     catalogPatch: { params: { bookId: string; patch: CatalogPatch }; response: CatalogFile };
+    catalogSuggest: { params: { bookId: string }; response: CatalogFile };
     markBookFinished: { params: { bookId: string; nodeId: string }; response: boolean };
     /* ---- WeChat Reading; each answers empty when no key is set ---- */
     wereadQuotes: { params: { title: string; author?: string }; response: readonly string[] };

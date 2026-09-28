@@ -154,6 +154,11 @@ export async function patchCatalog(bookId: string, patch: CatalogPatch): Promise
   return (await connect()).request.catalogPatch({ bookId, patch }, POLL_LIMIT).catch(rethrow);
 }
 
+export async function suggestCatalogFor(bookId: string): Promise<CatalogFile> {
+  if (!inShell) throw offline('offline_delete');
+  return (await connect()).request.catalogSuggest({ bookId }, POLL_LIMIT).catch(rethrow);
+}
+
 /**
  * Ask the main process where the current run is.
  *

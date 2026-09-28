@@ -30,12 +30,12 @@ const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const isCatalogSource = (value: unknown): value is CatalogSource =>
   value === 'automatic' || value === 'manual';
 
-const normalizeCategory = (value: string): string | undefined => {
+export const normalizeCatalogCategory = (value: string): string | undefined => {
   const category = value.trim().replace(/\s+/g, ' ').slice(0, 80);
   return category || undefined;
 };
 
-const normalizeTags = (values: readonly string[]): readonly string[] => {
+export const normalizeCatalogTags = (values: readonly string[]): readonly string[] => {
   const seen = new Set<string>();
   const tags: string[] = [];
 
@@ -58,11 +58,11 @@ const parseRecord = (bookId: string, value: unknown): CatalogRecord | undefined 
     typeof value.updatedAt !== 'string' ||
     (value.category !== undefined && typeof value.category !== 'string')) return undefined;
 
-  const category = value.category === undefined ? undefined : normalizeCategory(value.category);
+  const category = value.category === undefined ? undefined : normalizeCatalogCategory(value.category);
   return {
     bookId,
     ...(category === undefined ? {} : { category }),
-    tags: normalizeTags(value.tags),
+    tags: normalizeCatalogTags(value.tags),
     categorySource: value.categorySource,
     tagsSource: value.tagsSource,
     updatedAt: value.updatedAt,
@@ -105,8 +105,8 @@ export function applyCatalogPatch(
 
   const category = patch.category === undefined || !updateCategory
     ? record.category
-    : normalizeCategory(patch.category);
-  const tags = patch.tags === undefined || !updateTags ? record.tags : normalizeTags(patch.tags);
+    : normalizeCatalogCategory(patch.category);
+  const tags = patch.tags === undefined || !updateTags ? record.tags : normalizeCatalogTags(patch.tags);
   return {
     version: 1,
     records: {
