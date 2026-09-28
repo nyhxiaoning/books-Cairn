@@ -144,7 +144,7 @@ export const zh: Messages = {
     splitterDrag: (collapsed: boolean) => `拖动调整宽度，双击${collapsed ? '展开' : '收起'}`,
   },
 
-  home: {
+    home: {
     tagline: '把一本你已经有的电子书，变成一条可以走到头的路。',
     dropTitle: '放一本电子书进来',
     dropSub: (formats: string) => `支持 ${formats}`,
@@ -167,6 +167,8 @@ export const zh: Messages = {
     rating: (score: number) => `推荐值 ${Math.round(score)}%`,
     deleteTitle: '删除这本书',
     settings: '设置',
+    exportAudio: '导出音频',
+    exportSlides: '导出幻灯片',
   },
 
   details: {
@@ -177,6 +179,8 @@ export const zh: Messages = {
     tagsHint: '用逗号分隔标签。',
     none: '无',
     editCatalog: '编辑分类和标签',
+    exportAudio: '导出音频',
+    exportSlides: '导出幻灯片',
     suggest: '建议分类和标签',
     suggesting: '正在建议…',
     save: '保存',

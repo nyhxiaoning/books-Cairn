@@ -155,7 +155,7 @@ export const en = {
       `Drag to resize, double-click to ${collapsed ? 'show' : 'hide'}`,
   },
 
-  home: {
+    home: {
     tagline: 'Turn an ebook you already own into a path you can walk to the end.',
     dropTitle: 'Drop an ebook in',
     dropSub: (formats: string) => formats,
@@ -179,6 +179,8 @@ export const en = {
     rating: (score: number) => `${Math.round(score)}% recommend`,
     deleteTitle: 'Delete this book',
     settings: 'Settings',
+    exportAudio: 'Export audio',
+    exportSlides: 'Export slides',
   },
 
   details: {
@@ -189,6 +191,8 @@ export const en = {
     tagsHint: 'Separate tags with commas.',
     none: 'None',
     editCatalog: 'Edit category and tags',
+    exportAudio: 'Export audio',
+    exportSlides: 'Export slides',
     suggest: 'Suggest category and tags',
     suggesting: 'Suggesting…',
     save: 'Save',

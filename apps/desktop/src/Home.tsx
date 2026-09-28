@@ -18,7 +18,7 @@ import { shortcuts } from './shortcut';
  * shelf below it is for walking a path again, and nothing opens until it is picked.
  */
 export function Home({
-  books, catalog, base, onAdd, onOpen, onDetails, onEditCatalog, onBuildUniverse, onDelete, onSettings,
+  books, catalog, base, onAdd, onOpen, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onDelete, onSettings,
 }: {
   books: readonly LibraryEntry[];
   catalog: CatalogFile;
@@ -29,6 +29,8 @@ export function Home({
   onDetails?: (bookId: string) => void;
   onEditCatalog?: (bookId: string) => void;
   onBuildUniverse?: (bookId: string) => void;
+  onExportAudio?: (bookId: string) => void | Promise<void>;
+  onExportSlides?: (bookId: string) => void | Promise<void>;
   /** Absent outside the desktop shell, where there is no main process to delete with. */
   onDelete?: (bookId: string) => Promise<void>;
   onSettings: () => void;
@@ -111,6 +113,8 @@ export function Home({
                 {...(onDetails ? { onDetails } : {})}
                 {...(onEditCatalog ? { onEditCatalog } : {})}
                 {...(onBuildUniverse ? { onBuildUniverse } : {})}
+                {...(onExportAudio ? { onExportAudio } : {})}
+                {...(onExportSlides ? { onExportSlides } : {})}
                 {...(onDelete ? { onDelete } : {})}
               />
             </div>

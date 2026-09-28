@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { payloadOf } from '@cairn/core/errors';
+import { CairnError, payloadOf } from '@cairn/core/errors';
 import { audioFile } from '@cairn/core/store/library';
 import type { LibraryEntry } from '@cairn/core/store/library';
 import { emptyCatalog, type CatalogFile, type CatalogPatch } from '@cairn/core/catalog/types';
@@ -19,6 +19,7 @@ import {
   listBooks, onCompanionEvent, onDeckStatus, onOpenSettings, markBookFinished, resumeBook, retryBook, setMenuLocale,
   suggestCatalogFor, patchCatalog, wereadStart,
   universeBuild, universeGet, universePatch,
+  exportAudio, exportSlides,
 } from './bridge';
 import { shortcuts } from './shortcut';
 import { useBundle } from './useBundle';
@@ -27,6 +28,8 @@ import { applyCompanionEvent, beginCompanionTurn, emptyCompanionView } from './c
 import type { BookMeta } from './shared/types';
 import type { UniversePanelState } from './UniversePanel';
 import type { UniverseChange } from './shared/schema';
+import { renderSlidesHtml } from './export/slide-html';
+import { exportFileName } from '@cairn/core/export/audio-plan';
 
 /** Typed in the companion's box, it clears the conversation instead of asking the model. */
 const CLEAR_COMMAND = '/clear';
@@ -296,6 +299,19 @@ export function App(): ReactElement {
     }
   }, [t]);
 
+  const exportBookAudio = useCallback(async (id: string) => {
+    await exportAudio(id);
+  }, []);
+
+  const exportBookSlides = useCallback(async (id: string) => {
+    // Slides render from the open bundle only: exporting a book that is not on
+    // screen would need a second loader for no real reader gain.
+    if (!bundle || bundle.path.bookId !== id) throw new CairnError('no_audio');
+    const html = await renderSlidesHtml(bundle.path, bundle.decks);
+    if (!html) throw new CairnError('no_audio');
+    await exportSlides(id, exportFileName(bundle.path.title, new Date().toISOString().slice(0, 10), 'html'), html);
+  }, [bundle]);
+
   const saveCatalog = useCallback(async (id: string, patch: CatalogPatch) => {
     const next = await patchCatalog(id, patch);
     setCatalog(next);
@@ -350,6 +366,8 @@ export function App(): ReactElement {
             : { status: 'loading' }}
           onBuildUniverse={() => buildUniverse(details.bookId)}
           onPatchUniverse={(change) => patchUniverse(details.bookId, change)}
+          onExportAudio={() => exportBookAudio(details.bookId)}
+          onExportSlides={() => exportBookSlides(details.bookId)}
           onEditCatalog={() => {
             setFocusCatalogEditor(false);
             setEditingCatalog(details.bookId);
@@ -375,6 +393,10 @@ export function App(): ReactElement {
           onDetails={openDetails}
           onEditCatalog={(id) => { openDetails(id); setEditingCatalog(id); }}
           onBuildUniverse={(id) => openDetails(id, 'universe')}
+          {...(inShell ? {
+            onExportAudio: (id: string) => { void exportBookAudio(id).catch((cause: unknown) => console.error('exportAudio', cause)); },
+            onExportSlides: (id: string) => { openBook(id); },
+          } : {})}
           onSettings={() => setSettingsOpen(true)}
           {...(inShell ? { onDelete: removeBook } : {})}
         />

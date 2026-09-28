@@ -14,7 +14,7 @@ const SECTIONS: readonly DetailsSection[] = ['overview', 'universe', 'experts', 
 export function BookDetails({
   book, meta, record, base, section = 'overview', focusCatalogEditor = false,
   universeState = { status: 'empty' }, onBuildUniverse = () => undefined,
-  onPatchUniverse = () => undefined, onEditCatalog, onClose,
+  onPatchUniverse = () => undefined, onExportAudio, onExportSlides, onEditCatalog, onClose,
 }: {
   book: LibraryEntry;
   meta?: BookMeta;
@@ -25,6 +25,8 @@ export function BookDetails({
   universeState?: UniversePanelState;
   onBuildUniverse?: () => void | Promise<void>;
   onPatchUniverse?: (change: UniverseChange) => void | Promise<void>;
+  onExportAudio?: () => void | Promise<void>;
+  onExportSlides?: () => void | Promise<void>;
   onEditCatalog: () => void;
   onClose: () => void;
 }): ReactElement {
@@ -80,7 +82,11 @@ export function BookDetails({
               <dt>{t.details.tags}</dt><dd>{record?.tags.length ? record.tags.join(', ') : t.details.none}</dd>
             </dl>
             {meta?.intro && <p className="details-intro">{meta.intro}</p>}
-            <button ref={editCatalog} type="button" className="shelf-act" onClick={onEditCatalog}>{t.details.editCatalog}</button>
+            <div className="details-export-row">
+              <button ref={editCatalog} type="button" className="shelf-act" onClick={onEditCatalog}>{t.details.editCatalog}</button>
+              {onExportAudio && <button type="button" className="shelf-act" onClick={() => void onExportAudio()}>{t.details.exportAudio}</button>}
+              {onExportSlides && <button type="button" className="shelf-act" onClick={() => void onExportSlides()}>{t.details.exportSlides}</button>}
+            </div>
           </div>
         ) : <UniversePanel section={active} state={universeState}
           onBuild={onBuildUniverse} onPatch={onPatchUniverse} />}

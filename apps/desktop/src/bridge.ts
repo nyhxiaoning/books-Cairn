@@ -179,6 +179,16 @@ export async function universePatch(bookId: string, change: UniverseChange): Pro
     .catch(rethrow);
 }
 
+export async function exportAudio(bookId: string): Promise<{ path: string; missing: readonly string[] }> {
+  if (!inShell) throw offline('offline_delete');
+  return (await connect()).request.exportAudio({ bookId }, ANSWER_LIMIT).catch(rethrow);
+}
+
+export async function exportSlides(bookId: string, fileName: string, html: string): Promise<{ path: string }> {
+  if (!inShell) throw offline('offline_delete');
+  return (await connect()).request.exportSlides({ bookId, fileName, html }, ANSWER_LIMIT).catch(rethrow);
+}
+
 /**
  * Ask the main process where the current run is.
  *

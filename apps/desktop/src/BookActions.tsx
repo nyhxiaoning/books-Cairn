@@ -4,13 +4,15 @@ import { errorText, useT } from '@cairn/ui';
 import { payloadOf } from '@cairn/core/errors';
 
 export function BookActions({
-  bookId, title, onDetails, onEditCatalog, onBuildUniverse, onDelete,
+  bookId, title, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onDelete,
 }: {
   bookId: string;
   title: string;
   onDetails?: (bookId: string) => void;
   onEditCatalog?: (bookId: string) => void;
   onBuildUniverse?: (bookId: string) => void;
+  onExportAudio?: (bookId: string) => void | Promise<void>;
+  onExportSlides?: (bookId: string) => void | Promise<void>;
   onDelete?: (bookId: string) => Promise<void>;
 }): ReactElement {
   const t = useT();
@@ -33,6 +35,8 @@ export function BookActions({
     ...(onDetails ? [{ label: t.home.bookDetails, run: () => onDetails(bookId) }] : []),
     ...(onBuildUniverse ? [{ label: t.home.buildUniverse, run: () => onBuildUniverse(bookId) }] : []),
     ...(onEditCatalog ? [{ label: t.home.editCatalog, run: () => onEditCatalog(bookId) }] : []),
+    ...(onExportAudio ? [{ label: t.home.exportAudio, run: () => void onExportAudio(bookId) }] : []),
+    ...(onExportSlides ? [{ label: t.home.exportSlides, run: () => void onExportSlides(bookId) }] : []),
     ...(onDelete ? [{ label: t.home.delete, run: () => setConfirming(true), danger: true }] : []),
   ];
   const focus = (index: number): void => {
