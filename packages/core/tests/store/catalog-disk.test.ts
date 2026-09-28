@@ -1,5 +1,5 @@
 import { beforeEach, expect, test } from 'bun:test';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openCatalog, type CatalogStore } from '../../src/store/catalog-disk';
@@ -13,6 +13,12 @@ beforeEach(async () => {
 });
 
 test('a missing catalog reads as an empty versioned file', async () => {
+  expect(await store.read()).toEqual({ version: 1, records: {} });
+});
+
+test('a malformed catalog reads as an empty versioned file', async () => {
+  await writeFile(join(root, 'catalog.json'), '{ invalid JSON');
+
   expect(await store.read()).toEqual({ version: 1, records: {} });
 });
 
