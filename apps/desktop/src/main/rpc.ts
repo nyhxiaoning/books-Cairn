@@ -52,7 +52,7 @@ export interface HandlerDeps {
   readonly universe: UniverseService;
   readonly exporter: ExportService;
   readonly providerFor: (bookId: string) => Promise<LlmProvider>;
-  readonly library: Pick<Library, 'list' | 'loadNotes'>;
+  readonly library: Pick<Library, 'list' | 'loadNotes' | 'patchEntry' | 'loadPath' | 'rewritePath'>;
   readonly devBuild: boolean;
   /** Rebuilds the native menu in the reader's language. */
   readonly menu: (locale: UiLocale) => void;
@@ -194,6 +194,19 @@ export function createHandlers({
 
     async markBookFinished(params: { bookId: string; nodeId: string }): Promise<boolean> {
       return markBookFinished(params.bookId, params.nodeId);
+    },
+
+    /** The reader's own display name for the book: shelf, player and path.json follow it. */
+    async renameBook(params: { bookId: string; title: string }): Promise<LibraryEntry> {
+      if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
+      const title = params.title.trim().slice(0, 200);
+      if (title.length === 0) throw new Error('invalid_title');
+      const updated = await bookLibrary.patchEntry(params.bookId, { title });
+      if (!updated) throw new CairnError('book_not_listed', { id: params.bookId });
+      // The player's header reads path.json, not the index, so both follow.
+      const path = await bookLibrary.loadPath(params.bookId);
+      await bookLibrary.rewritePath({ ...path, title });
+      return updated;
     },
 
     async chatHistory(params: { bookId: string }) {

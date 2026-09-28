@@ -184,6 +184,9 @@ export const en = {
     exportDone: 'Export complete',
     exportWhere: 'Saved to this folder on your Mac — the file is already open in Finder:',
     exportPartial: (n: number) => `${n} station${n === 1 ? '' : 's'} without audio were skipped and are not in this file.`,
+    rename: 'Rename',
+    renameAria: (title: string) => `Rename ${title}`,
+    renaming: 'Renaming…',
   },
 
   details: {

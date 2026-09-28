@@ -172,6 +172,9 @@ export const zh: Messages = {
     exportDone: '导出完成',
     exportWhere: '文件已保存到 Mac 上这个文件夹，并已在访达中打开：',
     exportPartial: (n: number) => `有 ${n} 个站点还没有音频，未包含在本次导出中。`,
+    rename: '重命名',
+    renameAria: (title: string) => `重命名 ${title}`,
+    renaming: '正在重命名…',
   },
 
   details: {

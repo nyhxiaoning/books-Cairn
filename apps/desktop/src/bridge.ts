@@ -179,6 +179,11 @@ export async function universePatch(bookId: string, change: UniverseChange): Pro
     .catch(rethrow);
 }
 
+export async function renameBook(bookId: string, title: string): Promise<LibraryEntry> {
+  if (!inShell) throw offline('offline_delete');
+  return (await connect()).request.renameBook({ bookId, title }, POLL_LIMIT).catch(rethrow);
+}
+
 export async function exportAudio(bookId: string): Promise<{ path: string; missing: readonly string[] }> {
   if (!inShell) throw offline('offline_delete');
   return (await connect()).request.exportAudio({ bookId }, ANSWER_LIMIT).catch(rethrow);

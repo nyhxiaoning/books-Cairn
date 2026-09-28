@@ -4,7 +4,7 @@ import { errorText, useT } from '@cairn/ui';
 import { payloadOf } from '@cairn/core/errors';
 
 export function BookActions({
-  bookId, title, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onDelete,
+  bookId, title, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onRename, onDelete,
 }: {
   bookId: string;
   title: string;
@@ -13,6 +13,8 @@ export function BookActions({
   onBuildUniverse?: (bookId: string) => void;
   onExportAudio?: (bookId: string) => void | Promise<void>;
   onExportSlides?: (bookId: string) => void | Promise<void>;
+  /** Put the row into inline rename; Home owns the editing state. */
+  onRename?: (bookId: string) => void;
   onDelete?: (bookId: string) => Promise<void>;
 }): ReactElement {
   const t = useT();
@@ -37,6 +39,7 @@ export function BookActions({
     ...(onEditCatalog ? [{ label: t.home.editCatalog, run: () => onEditCatalog(bookId) }] : []),
     ...(onExportAudio ? [{ label: t.home.exportAudio, run: () => void onExportAudio(bookId) }] : []),
     ...(onExportSlides ? [{ label: t.home.exportSlides, run: () => void onExportSlides(bookId) }] : []),
+    ...(onRename ? [{ label: t.home.rename, run: () => onRename(bookId) }] : []),
     ...(onDelete ? [{ label: t.home.delete, run: () => setConfirming(true), danger: true }] : []),
   ];
   const focus = (index: number): void => {

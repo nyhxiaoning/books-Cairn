@@ -275,6 +275,13 @@ body {
   flex: 0 0 auto; align-self: center; display: flex; align-items: center; gap: 8px;
   padding-right: 2px;
 }
+.shelf-rename { gap: 6px; cursor: default; }
+.shelf-rename-input {
+  width: 100%; font: inherit; font-size: calc(14px * var(--text-scale, 1)); font-weight: 600;
+  color: var(--ink); background: var(--card); border: 1px solid var(--accent); border-radius: 6px;
+  padding: 6px 9px;
+}
+.shelf-rename-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .shelf-ask { font-size: calc(11.5px * var(--text-scale, 1)); color: var(--dim); }
 /* The reason, not the word "failed": a delete that failed silently is a delete
    the reader will try again forever. */

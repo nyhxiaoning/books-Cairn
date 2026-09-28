@@ -40,6 +40,7 @@ export type BunSchema = RPCSchema<{
     universeGet: { params: { bookId: string }; response: BookUniverse | null };
     universeBuild: { params: { bookId: string }; response: BookUniverse };
     universePatch: { params: { bookId: string; change: UniverseChange }; response: BookUniverse };
+    renameBook: { params: { bookId: string; title: string }; response: LibraryEntry };
     exportAudio: { params: { bookId: string }; response: { path: string; missing: readonly string[] } };
     exportSlides: { params: { bookId: string; fileName: string; html: string }; response: { path: string } };
     markBookFinished: { params: { bookId: string; nodeId: string }; response: boolean };

@@ -413,6 +413,7 @@ export function App(): ReactElement {
           onDetails={openDetails}
           onEditCatalog={(id) => { openDetails(id); setEditingCatalog(id); }}
           onBuildUniverse={(id) => openDetails(id, 'universe')}
+          onRenamed={(entry) => setBooks((list) => list.map((b) => (b.id === entry.id ? entry : b)))}
           {...(inShell ? {
             onExportAudio: (id: string) => { exportBookAudio(id).catch((cause: unknown) => {
               console.error('exportAudio', cause);

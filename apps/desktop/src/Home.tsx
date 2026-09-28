@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { catalogCategories, filterCatalog } from '@cairn/core/catalog/search';
 import type { CatalogFile } from '@cairn/core/catalog/types';
 import { FEATURED_FORMATS } from '@cairn/core/parse/format';
 import type { LibraryEntry } from '@cairn/core/store/library';
-import { GearMark, useT } from '@cairn/ui';
+import { errorText, GearMark, useT } from '@cairn/ui';
+import { payloadOf } from '@cairn/core/errors';
 import { bookMeta, inShell } from './bridge';
+import { renameBook } from './bridge';
 import { BookActions } from './BookActions';
 import type { BookMeta } from './shared/types';
 import { shortcuts } from './shortcut';
@@ -18,7 +20,7 @@ import { shortcuts } from './shortcut';
  * shelf below it is for walking a path again, and nothing opens until it is picked.
  */
 export function Home({
-  books, catalog, base, onAdd, onOpen, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onDelete, onSettings,
+  books, catalog, base, onAdd, onOpen, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onRenamed, onDelete, onSettings,
 }: {
   books: readonly LibraryEntry[];
   catalog: CatalogFile;
@@ -31,6 +33,8 @@ export function Home({
   onBuildUniverse?: (bookId: string) => void;
   onExportAudio?: (bookId: string) => void | Promise<void>;
   onExportSlides?: (bookId: string) => void | Promise<void>;
+  /** Called after a successful rename so App can refresh its shelf copy. */
+  onRenamed?: (entry: LibraryEntry) => void;
   /** Absent outside the desktop shell, where there is no main process to delete with. */
   onDelete?: (bookId: string) => Promise<void>;
   onSettings: () => void;
@@ -39,6 +43,9 @@ export function Home({
   const [meta, setMeta] = useState<Readonly<Record<string, BookMeta>>>({});
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
+  const [renaming, setRenaming] = useState<string>();
+  const [renameBusy, setRenameBusy] = useState(false);
+  const [renameFailed, setRenameFailed] = useState<string>();
 
   const ids = books.map((b) => b.id).join('\n');
   // One at a time: a first launch with a key looks every book up, and a burst helps nobody
@@ -56,6 +63,20 @@ export function Home({
 
   const categories = useMemo(() => catalogCategories(books, catalog), [books, catalog]);
   const visible = useMemo(() => filterCatalog(books, catalog, query, category), [books, catalog, query, category]);
+
+  const commitRename = async (bookId: string, title: string): Promise<void> => {
+    setRenameBusy(true);
+    setRenameFailed(undefined);
+    try {
+      const updated = await renameBook(bookId, title);
+      onRenamed?.(updated);
+      setRenaming(undefined);
+    } catch (cause) {
+      setRenameFailed(errorText(payloadOf(cause), t));
+    } finally {
+      setRenameBusy(false);
+    }
+  };
 
   return (
     <div className="home">
@@ -104,9 +125,19 @@ export function Home({
           </div>
           {visible.map((b) => (
             <div className="shelf-row" key={b.id}>
-              <button type="button" className="shelf-item" onClick={() => onOpen(b.id)}>
-                <ShelfText book={b} meta={meta[b.id]} {...(base ? { base } : {})} />
-              </button>
+              {renaming === b.id ? (
+                <RenameRow
+                  initial={b.title}
+                  busy={renameBusy}
+                  failed={renameFailed}
+                  onCommit={(title) => void commitRename(b.id, title)}
+                  onCancel={() => { setRenaming(undefined); setRenameFailed(undefined); }}
+                />
+              ) : (
+                <button type="button" className="shelf-item" onClick={() => onOpen(b.id)}>
+                  <ShelfText book={b} meta={meta[b.id]} {...(base ? { base } : {})} />
+                </button>
+              )}
               <BookActions
                 bookId={b.id}
                 title={b.title}
@@ -115,6 +146,7 @@ export function Home({
                 {...(onBuildUniverse ? { onBuildUniverse } : {})}
                 {...(onExportAudio ? { onExportAudio } : {})}
                 {...(onExportSlides ? { onExportSlides } : {})}
+                {...(onRenamed ? { onRename: setRenaming } : {})}
                 {...(onDelete ? { onDelete } : {})}
               />
             </div>
@@ -134,6 +166,51 @@ function CategoryButton({ active, children, onClick }: {
     <button type="button" className={active ? 'shelf-category active' : 'shelf-category'} onClick={onClick}>
       {children}
     </button>
+  );
+}
+
+/** Inline rename: Enter commits, Escape cancels, blur commits like Finder does. */
+function RenameRow({ initial, busy, failed, onCommit, onCancel }: {
+  initial: string;
+  busy: boolean;
+  failed?: string;
+  onCommit: (title: string) => void;
+  onCancel: () => void;
+}): ReactElement {
+  const t = useT();
+  const input = useRef<HTMLInputElement>(null);
+  const [value, setValue] = useState(initial);
+
+  useEffect(() => {
+    input.current?.focus();
+    input.current?.select();
+  }, []);
+
+  const commit = (): void => {
+    const next = value.trim();
+    if (busy) return;
+    if (next.length === 0 || next === initial) { onCancel(); return; }
+    onCommit(next);
+  };
+
+  return (
+    <div className="shelf-item shelf-rename">
+      <input
+        ref={input}
+        className="shelf-rename-input"
+        value={value}
+        disabled={busy}
+        aria-label={t.home.renameAria(initial)}
+        onChange={(event) => setValue(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') { event.preventDefault(); commit(); }
+          if (event.key === 'Escape') { event.preventDefault(); onCancel(); }
+        }}
+        onBlur={() => commit()}
+      />
+      {busy && <span className="shelf-ask">{t.home.renaming}</span>}
+      {failed && <span className="shelf-ask bad" title={failed}>{failed}</span>}
+    </div>
   );
 }
 
