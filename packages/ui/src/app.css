@@ -143,6 +143,20 @@ body {
 .book-item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .book-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .book-item-meta { font-size: calc(11px * var(--text-scale, 1)); color: var(--dim); margin-top: 1px; }
+/* Overflowing names slide once per hover instead of staying truncated: the
+   whole title is readable, and an accidental hover never loops forever. */
+/* Pure CSS cannot measure the overflow, so the animation slides to the row's
+   own scroll extent via a translate that browsers clamp to content width. */
+.book-item-name:hover, .shelf-name:hover {
+  overflow: visible; text-overflow: clip;
+  animation: name-scroll 7s linear 1 both;
+}
+@keyframes name-scroll {
+  0%, 100% { transform: translateX(0); }
+  /* -100% would overshoot on short titles; calc() with the element's own
+     width slides exactly far enough for the tail to clear the ellipsis point. */
+  50% { transform: translateX(calc(-1 * (100% - 1em))); }
+}
 /* A fixed 14px box, flex-centred: ＋ and ‹ are fullwidth and were wider than the
    12px they were given, so each row's mark started at a slightly different x. */
 .book-check {
@@ -157,7 +171,11 @@ body {
 .shell.empty .deck-empty { display: flex; flex-direction: column; gap: 16px; align-items: center; }
 
 /* ---- home / shelf ---- */
-.home { width: 560px; max-width: 92vw; display: flex; flex-direction: column; gap: 26px; }
+.home {
+  width: 560px; max-width: 92vw; display: flex; flex-direction: column; gap: 26px;
+  /* A shelf taller than the window scrolls here, instead of running off-screen. */
+  max-height: calc(100vh - 32px); overflow-y: auto; padding: 4px 14px 16px;
+}
 .home-head h1 { font-size: calc(22px * var(--text-scale, 1)); font-weight: 700; }
 .home-head p { font-size: calc(13.5px * var(--text-scale, 1)); color: var(--dim); margin-top: 6px; line-height: 1.7; }
 
@@ -213,6 +231,12 @@ body {
 .shelf-row .shelf-item { flex: 1; min-width: 0; }
 .shelf-row .shelf-name, .shelf-row .shelf-meta {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The slide must escape the row's ellipsis clipping, so the name itself
+   carries the hover animation on the shelf. */
+.shelf-row .shelf-name:hover {
+  overflow: visible; text-overflow: clip;
+  animation: name-scroll 7s linear 1 both;
 }
 /* Quiet until the row is under the pointer: a delete button competing with the
    book's own name is a delete button that gets pressed by accident. */
