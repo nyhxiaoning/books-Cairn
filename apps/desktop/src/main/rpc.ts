@@ -3,7 +3,9 @@ import type { BookBuilder } from '@cairn/core/books/builder';
 import type { Weread } from './weread/service';
 import { ACCEPTED_EXTENSIONS } from '@cairn/core/parse/format';
 import type { BudgetId } from '@cairn/core/pipeline/budget';
+import type { CatalogFile, CatalogPatch } from '@cairn/core/catalog/types';
 import { isBookId, type LibraryEntry } from '@cairn/core/store/library';
+import type { CatalogStore } from '@cairn/core/store/catalog-disk';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { speakSample } from '@cairn/core/runtime';
@@ -39,6 +41,7 @@ const message = (cause: unknown): string =>
 export interface HandlerDeps {
   readonly books: BookBuilder;
   readonly weread: Weread;
+  readonly catalog: CatalogStore;
   readonly devBuild: boolean;
   /** Rebuilds the native menu in the reader's language. */
   readonly menu: (locale: UiLocale) => void;
@@ -49,7 +52,7 @@ export interface HandlerDeps {
   };
 }
 
-export function createHandlers({ books, weread, devBuild, menu, emit }: HandlerDeps) {
+export function createHandlers({ books, weread, catalog, devBuild, menu, emit }: HandlerDeps) {
   /** One reader, one conversation: a second send while a turn runs is refused. */
   let activeChat: { readonly turnId: string; readonly controller: AbortController } | undefined;
 
@@ -116,6 +119,15 @@ export function createHandlers({ books, weread, devBuild, menu, emit }: HandlerD
       return books.retry(params.bookId);
     },
 
+    async catalogGet(): Promise<CatalogFile> {
+      return catalog.read();
+    },
+
+    async catalogPatch(params: { bookId: string; patch: CatalogPatch }): Promise<CatalogFile> {
+      if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
+      return catalog.patch(params.bookId, params.patch);
+    },
+
     /* ---- WeChat Reading: an extra, so a failure is logged and reads as nothing ---- */
 
     async wereadQuotes(params: { title: string; author?: string }): Promise<readonly string[]> {
@@ -179,8 +191,10 @@ export function createHandlers({ books, weread, devBuild, menu, emit }: HandlerD
     /** Irreversible, and the reader has already confirmed it in the shelf. */
     async deleteBook(params: { bookId: string }): Promise<boolean> {
       try {
+        if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
         const removed = await books.remove(params.bookId);
         if (!removed) throw new CairnError('book_not_listed', { id: params.bookId });
+        await catalog.remove(params.bookId).catch(quietly('catalog cleanup failed', undefined));
         return true;
       } catch (cause) {
         // The terminal gets the stack; the reader gets a code the player words.

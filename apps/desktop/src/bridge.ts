@@ -2,6 +2,7 @@ import { CairnError } from '@cairn/core/errors';
 import type { ChatSession } from '@cairn/core/companion/types';
 import type { CompanionEvent } from './shared/companion-events';
 import type { BudgetId } from '@cairn/core/pipeline/budget';
+import { emptyCatalog, type CatalogFile, type CatalogPatch } from '@cairn/core/catalog/types';
 import { LIBRARY_INDEX, type LibraryEntry } from '@cairn/core/store/library';
 import { decodeError } from './shared/errors';
 import type {
@@ -141,6 +142,16 @@ export async function libraryBase(): Promise<string> {
 export async function listBooks(): Promise<readonly LibraryEntry[]> {
   const res = await fetch(`${await libraryBase()}/${LIBRARY_INDEX}`).catch(() => undefined);
   return res?.ok ? ((await res.json()) as LibraryEntry[]) : [];
+}
+
+export async function getCatalog(): Promise<CatalogFile> {
+  if (!inShell) return emptyCatalog();
+  return (await connect()).request.catalogGet(undefined, POLL_LIMIT).catch(rethrow);
+}
+
+export async function patchCatalog(bookId: string, patch: CatalogPatch): Promise<CatalogFile> {
+  if (!inShell) throw offline('offline_delete');
+  return (await connect()).request.catalogPatch({ bookId, patch }, POLL_LIMIT).catch(rethrow);
 }
 
 /**

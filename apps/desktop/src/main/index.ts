@@ -8,13 +8,14 @@
  */
 import { ApplicationMenu, BrowserView, BrowserWindow, Updater } from 'electrobun/main';
 import { createBookBuilder } from '@cairn/core/books/builder';
+import { openCatalog } from '@cairn/core/store/catalog-disk';
 import { edgeTtsNarrator } from '@cairn/core/runtime';
 import { createHandlers } from './rpc';
 import { installMenu, OPEN_SETTINGS, OPEN_INSPECTOR } from './menu';
 import { providerFor } from './provider';
 import { effectiveWereadKey, readSettings, writeSettings } from './settings';
 import { createWeread } from './weread/service';
-import { library } from './store';
+import { DATA_DIR, library } from './store';
 import { voiceFor, type UiLocale } from '../shared/settings';
 import type { CairnRPC } from '../shared/schema';
 
@@ -59,9 +60,12 @@ const weread = createWeread({
   keyOf: async () => effectiveWereadKey(await readSettings()),
 });
 
+const catalog = openCatalog(DATA_DIR);
+
 const handlers = createHandlers({
   books,
   weread,
+  catalog,
   devBuild,
   menu,
   emit: {
