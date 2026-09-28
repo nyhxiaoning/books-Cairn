@@ -9,11 +9,16 @@
 import { ApplicationMenu, BrowserView, BrowserWindow, Updater } from 'electrobun/main';
 import { createBookBuilder } from '@cairn/core/books/builder';
 import { openCatalog } from '@cairn/core/store/catalog-disk';
+import { openUniverseStore } from '@cairn/core/store/universe-disk';
 import { edgeTtsNarrator } from '@cairn/core/runtime';
+import { fetchWeb } from './companion/web-tools';
+import { webSearch } from './companion/search-provider';
 import { createHandlers } from './rpc';
 import { installMenu, OPEN_SETTINGS, OPEN_INSPECTOR } from './menu';
 import { providerFor } from './provider';
+import { readReadingRecord } from './reading';
 import { effectiveWereadKey, readSettings, writeSettings } from './settings';
+import { createUniverseService } from './universe/service';
 import { createWeread } from './weread/service';
 import { DATA_DIR, library } from './store';
 import { voiceFor, type UiLocale } from '../shared/settings';
@@ -61,6 +66,18 @@ const weread = createWeread({
 });
 
 const catalog = openCatalog(DATA_DIR);
+const universeStore = openUniverseStore(DATA_DIR);
+const universe = createUniverseService({
+  library,
+  catalog,
+  store: universeStore,
+  providerFor,
+  readSettings,
+  webSearch,
+  fetchWeb,
+  readReadingRecord,
+  now: () => new Date().toISOString(),
+});
 
 const handlers = createHandlers({
   books,
