@@ -20,6 +20,8 @@ export function CompanionPane({
   onClearSelection: () => void;
   onJumpToChapter: (chapter: number) => boolean;
   onOpenShelf: (bookId: string, nodeId: string) => void;
+  /** Open a linked expert book; absent when the shelf is unreachable. */
+  onOpenExpert?: (bookId: string) => void;
 }): ReactElement {
   const t = useT();
   const [draft, setDraft] = useState('');
@@ -45,6 +47,10 @@ export function CompanionPane({
     }
     if (citation.source === 'shelf' && 'bookId' in ref) {
       return <button className="chip" type="button" key={index} onClick={() => onOpenShelf(ref.bookId, ref.nodeId)} title={`${ref.bookTitle} · ${ref.nodeTitle}`}>{`${ref.bookTitle} · ${ref.nodeTitle}`.slice(0, 32) || t.companion.readingSource}</button>;
+    }
+    if (citation.source === 'expert' && 'bookId' in ref && 'chapter' in ref) {
+      return <button className="chip" type="button" key={index} onClick={() => onOpenExpert?.(ref.bookId)}
+        title={`${ref.bookTitle} · ${ref.title}`}>{`${ref.bookTitle} · ${ref.title}`.slice(0, 32) || t.companion.expertSource}</button>;
     }
     return <span key={index} />;
   };

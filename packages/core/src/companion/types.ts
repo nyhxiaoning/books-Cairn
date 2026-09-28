@@ -15,8 +15,15 @@ export interface ShelfRef {
   readonly nodeTitle: string;
 }
 
-export type Source = 'book' | 'web' | 'shelf';
-export type SourceRef = ChapterRef | WebRef | ShelfRef;
+export interface ExpertRef {
+  readonly bookId: string;
+  readonly bookTitle: string;
+  readonly chapter: number;
+  readonly title: string;
+}
+
+export type Source = 'book' | 'web' | 'shelf' | 'expert';
+export type SourceRef = ChapterRef | WebRef | ShelfRef | ExpertRef;
 
 export interface EvidenceRecord {
   readonly resultId: string;

@@ -122,6 +122,7 @@ export const en = {
     stop: 'Stop',
     webSource: 'Web source',
     readingSource: 'Earlier reading',
+    expertSource: 'Related book',
     chapter: (n: number) => `Ch. ${n}`,
     busy: 'Another answer is still running.',
     error: (code: string) => ({

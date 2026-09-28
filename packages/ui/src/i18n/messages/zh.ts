@@ -112,6 +112,7 @@ export const zh: Messages = {
     stop: '停止',
     webSource: '网页来源',
     readingSource: '读过的书',
+    expertSource: '相关书',
     chapter: (n: number) => `第 ${n} 章`,
     busy: '上一条回答还在进行中。',
     error: (code: string) => ({
