@@ -1,6 +1,6 @@
 import type { RPCSchema } from 'electrobun/view';
 import type { BudgetId } from '@cairn/core/pipeline/budget';
-import type { CatalogFile, CatalogPatch } from '@cairn/core/catalog/types';
+import type { CatalogFile, CatalogPatch, CatalogSuggestionResult } from '@cairn/core/catalog/types';
 import type { LibraryEntry } from '@cairn/core/store/library';
 import type { ChatSession } from '@cairn/core/companion/types';
 import type { CompanionEvent } from './companion-events';
@@ -35,7 +35,7 @@ export type BunSchema = RPCSchema<{
     retryBook: { params: { bookId: string }; response: boolean };
     catalogGet: { params: void; response: CatalogFile };
     catalogPatch: { params: { bookId: string; patch: CatalogPatch }; response: CatalogFile };
-    catalogSuggest: { params: { bookId: string }; response: CatalogFile };
+    catalogSuggest: { params: { bookId: string }; response: CatalogSuggestionResult };
     markBookFinished: { params: { bookId: string; nodeId: string }; response: boolean };
     /* ---- WeChat Reading; each answers empty when no key is set ---- */
     wereadQuotes: { params: { title: string; author?: string }; response: readonly string[] };

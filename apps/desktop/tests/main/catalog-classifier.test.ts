@@ -66,7 +66,10 @@ test('explicit catalog suggestions patch automatic fields only', async () => {
   };
 
   await expect(handlersFor(catalog, '{"category":"Psychology","tags":["Bias"]}')
-    .catalogSuggest({ bookId: 'book-one' })).resolves.toEqual(automatic);
+    .catalogSuggest({ bookId: 'book-one' })).resolves.toEqual({
+      catalog: automatic,
+      suggestion: { category: 'Psychology', tags: ['Bias'] },
+    });
   expect(patches).toEqual([{
     bookId: 'book-one', patch: { category: 'Psychology', tags: ['Bias'], source: 'automatic' },
   }]);
@@ -85,6 +88,9 @@ test('an explicit suggestion cannot replace manual catalog fields', async () => 
   };
 
   await expect(handlersFor(catalog, '{"category":"Psychology","tags":["Bias"]}')
-    .catalogSuggest({ bookId: 'book-one' })).resolves.toEqual(manual);
+    .catalogSuggest({ bookId: 'book-one' })).resolves.toEqual({
+      catalog: manual,
+      suggestion: { category: 'Psychology', tags: ['Bias'] },
+    });
   expect(current).toEqual(manual);
 });

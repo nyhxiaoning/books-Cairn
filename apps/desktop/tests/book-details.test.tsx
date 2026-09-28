@@ -121,6 +121,28 @@ describe('book details', () => {
     }
   });
 
+  test('category editor closes with Escape and returns focus to its opener', () => {
+    let opener: HTMLButtonElement | undefined;
+    const closed: string[] = [];
+    const mounted = mount(
+      <CategoryEditor record={record} onSuggest={async () => undefined} onSave={() => undefined}
+        onClose={() => closed.push('closed')} />,
+      (window) => {
+        opener = window.document.createElement('button');
+        window.document.body.append(opener);
+        opener.focus();
+      },
+    );
+    try {
+      expect(mounted.window.document.activeElement).toBe(input(mounted, 'Category'));
+      key(mounted, 'Escape');
+      expect(closed).toEqual(['closed']);
+      expect(mounted.window.document.activeElement).toBe(opener);
+    } finally {
+      mounted.close();
+    }
+  });
+
   test('shows automatic values for review and does not dismiss a failed save', async () => {
     const mounted = mount(
       <CategoryEditor record={record}

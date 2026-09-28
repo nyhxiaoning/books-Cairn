@@ -2,7 +2,9 @@ import { CairnError } from '@cairn/core/errors';
 import type { ChatSession } from '@cairn/core/companion/types';
 import type { CompanionEvent } from './shared/companion-events';
 import type { BudgetId } from '@cairn/core/pipeline/budget';
-import { emptyCatalog, type CatalogFile, type CatalogPatch } from '@cairn/core/catalog/types';
+import {
+  emptyCatalog, type CatalogFile, type CatalogPatch, type CatalogSuggestionResult,
+} from '@cairn/core/catalog/types';
 import { LIBRARY_INDEX, type LibraryEntry } from '@cairn/core/store/library';
 import { decodeError } from './shared/errors';
 import type {
@@ -154,7 +156,7 @@ export async function patchCatalog(bookId: string, patch: CatalogPatch): Promise
   return (await connect()).request.catalogPatch({ bookId, patch }, POLL_LIMIT).catch(rethrow);
 }
 
-export async function suggestCatalogFor(bookId: string): Promise<CatalogFile> {
+export async function suggestCatalogFor(bookId: string): Promise<CatalogSuggestionResult> {
   if (!inShell) throw offline('offline_delete');
   return (await connect()).request.catalogSuggest({ bookId }, ANSWER_LIMIT).catch(rethrow);
 }

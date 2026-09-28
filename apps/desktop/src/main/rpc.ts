@@ -3,7 +3,7 @@ import type { BookBuilder } from '@cairn/core/books/builder';
 import type { Weread } from './weread/service';
 import { ACCEPTED_EXTENSIONS } from '@cairn/core/parse/format';
 import type { BudgetId } from '@cairn/core/pipeline/budget';
-import type { CatalogFile, CatalogPatch } from '@cairn/core/catalog/types';
+import type { CatalogFile, CatalogPatch, CatalogSuggestionResult } from '@cairn/core/catalog/types';
 import { suggestCatalog } from '@cairn/core/catalog/classify';
 import type { LlmProvider } from '@cairn/core/llm/types';
 import { isBookId, type LibraryEntry } from '@cairn/core/store/library';
@@ -135,7 +135,7 @@ export function createHandlers({
       return catalog.patch(params.bookId, params.patch);
     },
 
-    async catalogSuggest(params: { bookId: string }): Promise<CatalogFile> {
+    async catalogSuggest(params: { bookId: string }): Promise<CatalogSuggestionResult> {
       if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
       const entry = (await bookLibrary.list()).find((book) => book.id === params.bookId);
       if (!entry) throw new Error('book_not_found');
@@ -145,7 +145,10 @@ export function createHandlers({
       const suggestion = await suggestCatalog(
         entry.title, notes, provider, undefined, entry.language ?? 'en',
       );
-      return catalog.patch(params.bookId, { ...suggestion, source: 'automatic' });
+      return {
+        catalog: await catalog.patch(params.bookId, { ...suggestion, source: 'automatic' }),
+        suggestion,
+      };
     },
 
     /* ---- WeChat Reading: an extra, so a failure is logged and reads as nothing ---- */

@@ -1,7 +1,7 @@
 import { LlmError, type LlmProvider, parseJsonOutput } from '../llm/types';
 import type { ContentLocale } from '../parse/language';
 import type { ChapterNote } from '../types';
-import { normalizeCatalogCategory, normalizeCatalogTags } from './types';
+import { normalizeCatalogCategory, normalizeCatalogTags, type CatalogSuggestion } from './types';
 
 const SCHEMA = {
   type: 'object',
@@ -48,7 +48,7 @@ export async function suggestCatalog(
   provider: LlmProvider,
   signal?: AbortSignal,
   locale: ContentLocale = 'en',
-): Promise<{ readonly category: string; readonly tags: readonly string[] }> {
+): Promise<CatalogSuggestion> {
   const raw = await provider.complete({
     label: 'catalog',
     system: systemFor(locale),

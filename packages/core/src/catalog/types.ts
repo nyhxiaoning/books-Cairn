@@ -16,6 +16,16 @@ export interface CatalogFile {
   readonly records: Readonly<Record<string, CatalogRecord>>;
 }
 
+export interface CatalogSuggestion {
+  readonly category: string;
+  readonly tags: readonly string[];
+}
+
+export interface CatalogSuggestionResult {
+  readonly catalog: CatalogFile;
+  readonly suggestion: CatalogSuggestion;
+}
+
 export interface CatalogPatch {
   readonly category?: string;
   readonly tags?: readonly string[];

@@ -247,8 +247,8 @@ export function App(): ReactElement {
 
   const suggestCatalog = useCallback(async (id: string) => {
     const next = await suggestCatalogFor(id);
-    setCatalog(next);
-    return next.records[id];
+    setCatalog(next.catalog);
+    return next.suggestion;
   }, []);
 
   const goHome = useCallback(() => {
