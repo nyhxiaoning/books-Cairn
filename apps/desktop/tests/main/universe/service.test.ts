@@ -6,6 +6,7 @@ import type { Library } from '@cairn/core/store/library-disk';
 import type { ReadingRecord } from '@cairn/core/store/reading';
 import type { UniverseStore } from '@cairn/core/store/universe-disk';
 import type { ChapterNote, Path } from '@cairn/core/types';
+import { bookIdentity } from '@cairn/core/universe/identity';
 import type { BookUniverse } from '@cairn/core/universe/types';
 import { DEFAULT_SHELL_SETTINGS } from '../../../src/shared/settings';
 import { createUniverseService } from '../../../src/main/universe/service';
@@ -105,6 +106,8 @@ function setup(overrides: {
       const current = installed.get(bookId);
       if (current === undefined) return undefined;
       const next = mutation(current);
+      events.push('install');
+      installs.push(next);
       installed.set(bookId, next);
       return next;
     },
@@ -193,10 +196,21 @@ test.each([
   ['fetch', setup({ fetch: async () => { throw new Error('fetch failed'); } })],
   ['model', setup({ complete: async () => { throw new Error('model failed'); } })],
   ['invalid model output', setup({ complete: async () => 'not json' })],
+  ['missing books output', setup({ complete: async () => '{}' })],
 ] as const)('%s failure retains the prior universe', async (_stage, state) => {
   await expect(state.service.build('seed-book')).rejects.toThrow();
   expect(state.installs).toHaveLength(0);
   expect(state.current()).toEqual(priorUniverse());
+});
+
+test('a valid empty model result installs an honest empty universe', async () => {
+  const state = setup({ complete: async () => '{"books":[]}' });
+
+  const universe = await state.service.build('seed-book');
+
+  expect(universe.books).toEqual([]);
+  expect(state.installs).toEqual([universe]);
+  expect(universe.generatedAt).toBe(generatedAt);
 });
 
 test('does not resolve a model provider when search returns no public pages', async () => {
@@ -269,4 +283,39 @@ test('same-book builds share one promise while another book builds independently
   releaseSeed();
   await expect(first).resolves.toMatchObject({ bookId: 'seed-book' });
   expect(state.installs).toHaveLength(2);
+});
+
+test('a manual patch completed during discovery survives the final build merge', async () => {
+  let releaseModel = () => undefined;
+  let modelStarted = () => undefined;
+  const modelGate = new Promise<void>((resolve) => { releaseModel = resolve; });
+  const started = new Promise<void>((resolve) => { modelStarted = resolve; });
+  const state = setup({
+    complete: async () => {
+      modelStarted();
+      await modelGate;
+      return JSON.stringify(reply);
+    },
+  });
+  const manual = {
+    id: 'manual-book', title: 'Reader choice', authors: ['Reader'], role: 'extend' as const,
+    sharedTopics: ['decisions'], rationale: 'Added by the reader.', sources: [],
+    evidence: 'candidate' as const, origin: 'manual' as const,
+  };
+  const dismissedIdentity = bookIdentity({ title: 'Related 2', authors: ['A. Writer'] });
+
+  const building = state.service.build('seed-book');
+  await started;
+  await state.service.patch('seed-book', (current) => ({
+    ...current,
+    books: [...current.books, manual],
+    dismissed: [...current.dismissed, dismissedIdentity],
+  }));
+  releaseModel();
+  const universe = await building;
+
+  expect(universe.books).toContainEqual(manual);
+  expect(universe.dismissed).toContain(dismissedIdentity);
+  expect(universe.books.some((book) => book.title === 'Related 2')).toBe(false);
+  expect(state.current()).toEqual(universe);
 });

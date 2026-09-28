@@ -1,4 +1,4 @@
-import { type LlmProvider, parseJsonOutput } from '../llm/types';
+import { LlmError, type LlmProvider, parseJsonOutput } from '../llm/types';
 import { bookIdentity, normalizeIsbn } from './identity';
 import type { BookProfile } from './profile';
 import type { RelatedBook, UniverseRole, UniverseSource } from './types';
@@ -174,7 +174,9 @@ export async function discoverRelations(
     label: 'universe', system: SYSTEM, prompt: promptFor(profile, pages), schema: SCHEMA, signal,
   });
   const parsed = parseJsonOutput<RawResponse>(raw);
-  if (!Array.isArray(parsed.books)) return [];
+  if (typeof parsed !== 'object' || parsed === null || !Array.isArray(parsed.books)) {
+    throw new LlmError('Universe output is missing its books array', 'bad_output');
+  }
 
   const identities = new Set<string>();
   const ids = new Set<string>();

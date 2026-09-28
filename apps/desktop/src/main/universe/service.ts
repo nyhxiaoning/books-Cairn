@@ -114,10 +114,9 @@ export function createUniverseService(deps: UniverseServiceDependencies): Univer
     const entry = entries.find((candidate) => candidate.id === bookId);
     if (entry === undefined) throw new Error(`Book not found: ${bookId}`);
 
-    const [catalog, notes, previous] = await Promise.all([
+    const [catalog, notes] = await Promise.all([
       deps.catalog.read(),
       deps.library.loadNotes(bookId),
-      deps.store.read(bookId),
     ]);
     const profile = deriveBookProfile(entry, catalog.records[bookId], notes);
     const settings = await deps.readSettings();
@@ -136,13 +135,15 @@ export function createUniverseService(deps: UniverseServiceDependencies): Univer
       generatedAt: deps.now(),
       profile: { category: profile.category, topics: profile.topics },
       books,
-      dismissed: previous?.dismissed ?? [],
+      dismissed: [],
     });
     if (generated === undefined) throw new Error('Invalid generated universe');
-    const next = previous === undefined ? generated : mergeUniverse(previous, generated);
-    const validated = parseUniverse(next);
-    if (validated === undefined) throw new Error('Invalid merged universe');
-    return deps.store.install(bookId, validated);
+    const merged = await deps.store.patch(bookId, (current) => {
+      const validated = parseUniverse(mergeUniverse(current, generated));
+      if (validated === undefined) throw new Error('Invalid merged universe');
+      return validated;
+    });
+    return merged ?? deps.store.install(bookId, generated);
   };
 
   const build = (bookId: string, signal?: AbortSignal): Promise<BookUniverse> => {

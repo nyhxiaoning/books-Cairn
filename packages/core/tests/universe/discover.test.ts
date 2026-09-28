@@ -75,6 +75,13 @@ test('returns an honest smaller result instead of padding candidates', async () 
   expect(result).toHaveLength(1);
 });
 
+test('rejects a missing books array but accepts an honest empty result', async () => {
+  await expect(discoverRelations(profile, pages, fakeProvider({}))).rejects.toMatchObject({
+    code: 'bad_output',
+  });
+  await expect(discoverRelations(profile, pages, fakeProvider({ books: [] }))).resolves.toEqual([]);
+});
+
 test('caps twelve otherwise-valid proposals at ten', async () => {
   const result = await discoverRelations(profile, pages, fakeProvider({
     books: Array.from({ length: 12 }, (_, index) => candidate(index)),
