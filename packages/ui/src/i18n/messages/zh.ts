@@ -163,6 +163,31 @@ export const zh: Messages = {
     settings: '设置',
   },
 
+  details: {
+    title: '书籍详情',
+    close: '关闭',
+    category: '分类',
+    tags: '标签',
+    tagsHint: '用逗号分隔标签。',
+    none: '无',
+    editCatalog: '编辑分类和标签',
+    suggest: '建议分类和标签',
+    suggesting: '正在建议…',
+    save: '保存',
+    saving: '保存中…',
+    sections: {
+      overview: '概览',
+      universe: '书籍宇宙',
+      experts: '专家讨论',
+      evidence: '证据与状态',
+    },
+    empty: {
+      universe: '构建书籍宇宙后会显示在这里。',
+      experts: '这本书有已映射的关联书籍后，专家讨论会显示在这里。',
+      evidence: '书籍宇宙可用后，证据与状态会显示在这里。',
+    },
+  },
+
   add: {
     title: '添加一本书',
     parsing: '正在读这本书…',

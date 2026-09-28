@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { audioFile } from '@cairn/core/store/library';
 import type { LibraryEntry } from '@cairn/core/store/library';
-import { emptyCatalog, type CatalogFile } from '@cairn/core/catalog/types';
+import { emptyCatalog, type CatalogFile, type CatalogPatch } from '@cairn/core/catalog/types';
 import { stationHeat } from '@cairn/core/store/asks';
 import {
   CompanionPane, DeckPane, StagePane, Splitter, PanelToggle, SettingsPanel, useSplit, useResume,
@@ -10,19 +10,23 @@ import {
   DEFAULT_LEFT, DEFAULT_RIGHT, LEFT_LIMITS, RIGHT_LIMITS,
 } from '@cairn/ui';
 import { AddBook } from './AddBook';
+import { BookDetails, type DetailsSection } from './BookDetails';
+import { CategoryEditor } from './CategoryEditor';
 import { Home } from './Home';
 import {
-  chatCancel, chatClear, chatHistory, chatSend, deleteBook, focusStation, getCatalog, inShell, libraryBase,
+  bookMeta, chatCancel, chatClear, chatHistory, chatSend, deleteBook, focusStation, getCatalog, inShell, libraryBase,
   listBooks, onCompanionEvent, onDeckStatus, onOpenSettings, markBookFinished, resumeBook, retryBook, setMenuLocale,
-  wereadStart,
+  suggestCatalogFor, patchCatalog, wereadStart,
 } from './bridge';
 import { shortcuts } from './shortcut';
 import { useBundle } from './useBundle';
 import { useShellSettings } from './useShellSettings';
 import { applyCompanionEvent, beginCompanionTurn, emptyCompanionView } from './companion-state';
+import type { BookMeta } from './shared/types';
 
 /** Typed in the companion's box, it clears the conversation instead of asking the model. */
 const CLEAR_COMMAND = '/clear';
+type DetailsTarget = { readonly bookId: string; readonly section: DetailsSection };
 
 export function App(): ReactElement {
   const [books, setBooks] = useState<readonly LibraryEntry[]>([]);
@@ -30,6 +34,9 @@ export function App(): ReactElement {
   const [bookId, setBookId] = useState<string>();
   const [adding, setAdding] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [details, setDetails] = useState<DetailsTarget>();
+  const [editingCatalog, setEditingCatalog] = useState<string>();
+  const [detailsMeta, setDetailsMeta] = useState<Readonly<Record<string, BookMeta>>>({});
   /** Port and token are new on every launch, so every URL is built from this. */
   const [base, setBase] = useState<string>();
   const { bundle, error, reload } = useBundle(bookId, base);
@@ -225,6 +232,25 @@ export function App(): ReactElement {
     resume.forget(id);
   }, [resume]);
 
+  const openDetails = useCallback((id: string, section: DetailsSection = 'overview') => {
+    setDetails({ bookId: id, section });
+    void bookMeta(id).then((meta) => {
+      if (meta) setDetailsMeta((current) => ({ ...current, [id]: meta }));
+    });
+  }, []);
+
+  const saveCatalog = useCallback(async (id: string, patch: CatalogPatch) => {
+    const next = await patchCatalog(id, patch);
+    setCatalog(next);
+    setEditingCatalog(undefined);
+  }, []);
+
+  const suggestCatalog = useCallback(async (id: string) => {
+    const next = await suggestCatalogFor(id);
+    setCatalog(next);
+    return next.records[id];
+  }, []);
+
   const goHome = useCallback(() => {
     // Going back to the shelf is deliberate, so the next launch opens there too.
     // The position inside each book is kept.
@@ -235,11 +261,31 @@ export function App(): ReactElement {
     setChat(emptyCompanionView(''));
   }, [resume, chat.pendingTurn]);
 
+  const detailBook = details ? books.find((book) => book.id === details.bookId) : undefined;
+
   const modal = (
     <>
       {adding && <AddBook autoPick onDone={onAdded} onClose={() => setAdding(false)} />}
       {settingsOpen && (
         <SettingsPanel shell={shell} onClose={() => setSettingsOpen(false)} />
+      )}
+      {editingCatalog ? (
+        <CategoryEditor
+          record={catalog.records[editingCatalog]}
+          onSuggest={() => suggestCatalog(editingCatalog)}
+          onSave={(patch) => saveCatalog(editingCatalog, patch)}
+          onClose={() => setEditingCatalog(undefined)}
+        />
+      ) : details && detailBook && (
+        <BookDetails
+          book={detailBook}
+          meta={detailsMeta[details.bookId]}
+          record={catalog.records[details.bookId]}
+          base={base}
+          section={details.section}
+          onEditCatalog={() => setEditingCatalog(details.bookId)}
+          onClose={() => setDetails(undefined)}
+        />
       )}
     </>
   );
@@ -253,6 +299,9 @@ export function App(): ReactElement {
           {...(base ? { base } : {})}
           onAdd={() => setAdding(true)}
           onOpen={openBook}
+          onDetails={openDetails}
+          onEditCatalog={(id) => { openDetails(id); setEditingCatalog(id); }}
+          onBuildUniverse={(id) => openDetails(id, 'universe')}
           onSettings={() => setSettingsOpen(true)}
           {...(inShell ? { onDelete: removeBook } : {})}
         />

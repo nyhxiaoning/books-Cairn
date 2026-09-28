@@ -300,6 +300,40 @@ body {
 @media (prefers-reduced-motion: reduce) { .modal-quote { animation: none; } }
 .modal-error { font-size: calc(12.5px * var(--text-scale, 1)); color: var(--accent); margin-top: 14px; line-height: 1.7; }
 
+/* ---- book details and catalog editor ---- */
+.book-details { width: 620px; min-height: 360px; }
+.details-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.details-close {
+  font: inherit; font-size: calc(12px * var(--text-scale, 1)); color: var(--dim); background: none;
+  border: 0; padding: 3px 0; cursor: pointer; text-decoration: underline;
+}
+.details-tabs { display: flex; gap: 4px; margin: 18px 0 20px; border-bottom: 1px solid var(--line); }
+.details-tabs button {
+  font: inherit; font-size: calc(12px * var(--text-scale, 1)); color: var(--dim); border: 0; border-bottom: 2px solid transparent;
+  background: none; cursor: pointer; padding: 7px 9px;
+}
+.details-tabs button.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 620; }
+.details-overview { display: grid; grid-template-columns: auto 1fr; gap: 14px 18px; align-items: start; }
+.details-cover { width: 88px; max-height: 128px; object-fit: cover; border-radius: 5px; }
+.details-summary { color: var(--dim); font-size: calc(13px * var(--text-scale, 1)); line-height: 1.6; }
+.details-summary p + p { margin-top: 3px; }
+.details-catalog { grid-column: 1 / -1; display: grid; grid-template-columns: 82px 1fr; gap: 7px 14px; font-size: calc(13px * var(--text-scale, 1)); }
+.details-catalog dt { color: var(--dim); }
+.details-intro { grid-column: 1 / -1; color: var(--dim); font-size: calc(13px * var(--text-scale, 1)); line-height: 1.6; }
+.details-overview .shelf-act { justify-self: start; }
+.details-empty { color: var(--dim); font-size: calc(13px * var(--text-scale, 1)); line-height: 1.6; padding: 24px 0; }
+.category-editor { width: 420px; }
+.catalog-field { display: grid; gap: 6px; margin-top: 16px; font-size: calc(13px * var(--text-scale, 1)); }
+.catalog-field input { font: inherit; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; background: var(--chrome); }
+.catalog-field small { color: var(--dim); font-size: calc(11.5px * var(--text-scale, 1)); }
+.details-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; }
+.details-suggest { padding-top: 0; }
+
+@media (max-width: 520px) {
+  .details-tabs { overflow-x: auto; }
+  .details-tabs button { white-space: nowrap; }
+}
+
 .primary {
   font: inherit; font-size: calc(14px * var(--text-scale, 1)); font-weight: 600; padding: 10px 20px; cursor: pointer;
   border: 0; border-radius: 8px; background: var(--accent); color: #fff;

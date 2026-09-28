@@ -175,6 +175,31 @@ export const en = {
     settings: 'Settings',
   },
 
+  details: {
+    title: 'Book details',
+    close: 'Close',
+    category: 'Category',
+    tags: 'Tags',
+    tagsHint: 'Separate tags with commas.',
+    none: 'None',
+    editCatalog: 'Edit category and tags',
+    suggest: 'Suggest category and tags',
+    suggesting: 'Suggesting…',
+    save: 'Save',
+    saving: 'Saving…',
+    sections: {
+      overview: 'Overview',
+      universe: 'Book universe',
+      experts: 'Expert discussion',
+      evidence: 'Evidence and status',
+    },
+    empty: {
+      universe: 'The book universe will appear here once it is built.',
+      experts: 'Expert discussion will appear here once this book has related mapped books.',
+      evidence: 'Evidence and status will appear here once a book universe is available.',
+    },
+  },
+
   add: {
     title: 'Add a book',
     parsing: 'Reading this book…',
