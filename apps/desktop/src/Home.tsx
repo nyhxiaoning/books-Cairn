@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
-import { payloadOf } from '@cairn/core/errors';
+import { catalogCategories, filterCatalog } from '@cairn/core/catalog/search';
+import type { CatalogFile } from '@cairn/core/catalog/types';
 import { FEATURED_FORMATS } from '@cairn/core/parse/format';
 import type { LibraryEntry } from '@cairn/core/store/library';
-import { errorText, GearMark, TrashMark, useT } from '@cairn/ui';
+import { GearMark, useT } from '@cairn/ui';
 import { bookMeta, inShell } from './bridge';
+import { BookActions } from './BookActions';
 import type { BookMeta } from './shared/types';
 import { shortcuts } from './shortcut';
 
@@ -16,23 +18,25 @@ import { shortcuts } from './shortcut';
  * shelf below it is for walking a path again, and nothing opens until it is picked.
  */
 export function Home({
-  books, base, onAdd, onOpen, onDelete, onSettings,
+  books, catalog, base, onAdd, onOpen, onDetails, onEditCatalog, onBuildUniverse, onDelete, onSettings,
 }: {
   books: readonly LibraryEntry[];
+  catalog: CatalogFile;
   /** The library server's base URL, for covers. */
   base?: string;
   onAdd: () => void;
   onOpen: (bookId: string) => void;
+  onDetails?: (bookId: string) => void;
+  onEditCatalog?: (bookId: string) => void;
+  onBuildUniverse?: (bookId: string) => void;
   /** Absent outside the desktop shell, where there is no main process to delete with. */
   onDelete?: (bookId: string) => Promise<void>;
   onSettings: () => void;
 }): ReactElement {
   const t = useT();
-  /** Deleting is irreversible and the rows are small, so it takes two clicks. */
-  const [confirming, setConfirming] = useState<string>();
-  const [busy, setBusy] = useState<string>();
-  const [failed, setFailed] = useState<{ id: string; why: string }>();
   const [meta, setMeta] = useState<Readonly<Record<string, BookMeta>>>({});
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('all');
 
   const ids = books.map((b) => b.id).join('\n');
   // One at a time: a first launch with a key looks every book up, and a burst helps nobody
@@ -48,18 +52,8 @@ export function Home({
     return () => { live = false; };
   }, [ids]);
 
-  const remove = async (bookId: string): Promise<void> => {
-    setBusy(bookId);
-    setFailed(undefined);
-    try {
-      await onDelete?.(bookId);
-      setConfirming(undefined);
-    } catch (cause) {
-      setFailed({ id: bookId, why: errorText(payloadOf(cause), t) });
-    } finally {
-      setBusy(undefined);
-    }
-  };
+  const categories = useMemo(() => catalogCategories(books, catalog), [books, catalog]);
+  const visible = useMemo(() => filterCatalog(books, catalog, query, category), [books, catalog, query, category]);
 
   return (
     <div className="home">
@@ -87,53 +81,55 @@ export function Home({
       {books.length > 0 && (
         <section className="shelf">
           <h2 className="shelf-title">{t.home.shelf}</h2>
-          {books.map((b) => (
+          <div className="shelf-filters">
+            <input
+              type="search"
+              className="shelf-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t.home.searchBooks}
+              aria-label={t.home.searchBooks}
+            />
+            <div className="shelf-categories" aria-label={t.home.shelf}>
+              <CategoryButton active={category === 'all'} onClick={() => setCategory('all')}>{t.home.all}</CategoryButton>
+              <CategoryButton active={category === 'uncategorized'} onClick={() => setCategory('uncategorized')}>
+                {t.home.uncategorized}
+              </CategoryButton>
+              {categories.map((name) => (
+                <CategoryButton key={name} active={category === name} onClick={() => setCategory(name)}>{name}</CategoryButton>
+              ))}
+            </div>
+          </div>
+          {visible.map((b) => (
             <div className="shelf-row" key={b.id}>
               <button type="button" className="shelf-item" onClick={() => onOpen(b.id)}>
                 <ShelfText book={b} meta={meta[b.id]} {...(base ? { base } : {})} />
               </button>
-
-              {onDelete && (confirming === b.id ? (
-                <span className="shelf-confirm">
-                  <span
-                    className={failed?.id === b.id ? 'shelf-ask bad' : 'shelf-ask'}
-                    title={failed?.id === b.id ? failed.why : undefined}
-                  >
-                    {failed?.id === b.id ? failed.why : t.home.deleteAsk}
-                  </span>
-                  <button
-                    type="button"
-                    className="shelf-act danger"
-                    disabled={busy === b.id}
-                    onClick={() => void remove(b.id)}
-                  >
-                    {busy === b.id ? t.home.deleting : t.home.delete}
-                  </button>
-                  <button
-                    type="button"
-                    className="shelf-act"
-                    disabled={busy === b.id}
-                    onClick={() => { setConfirming(undefined); setFailed(undefined); }}
-                  >
-                    {t.home.cancel}
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  className="shelf-del"
-                  aria-label={t.home.deleteAria(b.title)}
-                  title={t.home.deleteTitle}
-                  onClick={() => setConfirming(b.id)}
-                >
-                  <TrashMark />
-                </button>
-              ))}
+              <BookActions
+                bookId={b.id}
+                title={b.title}
+                {...(onDetails ? { onDetails } : {})}
+                {...(onEditCatalog ? { onEditCatalog } : {})}
+                {...(onBuildUniverse ? { onBuildUniverse } : {})}
+                {...(onDelete ? { onDelete } : {})}
+              />
             </div>
           ))}
         </section>
       )}
     </div>
+  );
+}
+
+function CategoryButton({ active, children, onClick }: {
+  active: boolean;
+  children: string;
+  onClick: () => void;
+}): ReactElement {
+  return (
+    <button type="button" className={active ? 'shelf-category active' : 'shelf-category'} onClick={onClick}>
+      {children}
+    </button>
   );
 }
 

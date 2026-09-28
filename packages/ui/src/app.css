@@ -175,6 +175,20 @@ body {
 
 .shelf { display: flex; flex-direction: column; gap: 8px; }
 .shelf-title { font-size: calc(10.5px * var(--text-scale, 1)); letter-spacing: .1em; color: var(--dim); font-weight: 600; }
+.shelf-filters { display: flex; flex-direction: column; gap: 8px; }
+.shelf-search {
+  width: 100%; font: inherit; font-size: calc(13px * var(--text-scale, 1));
+  padding: 8px 10px; color: var(--ink); background: var(--card);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.shelf-search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.shelf-categories { display: flex; flex-wrap: wrap; gap: 6px; }
+.shelf-category {
+  font: inherit; font-size: calc(12px * var(--text-scale, 1)); cursor: pointer;
+  padding: 4px 9px; color: var(--dim); background: var(--chrome);
+  border: 1px solid var(--line); border-radius: 999px;
+}
+.shelf-category:hover, .shelf-category.active { color: var(--ink); border-color: var(--accent); background: var(--soft); }
 .shelf-item {
   font: inherit; text-align: left; cursor: pointer; padding: 12px 14px;
   display: flex; flex-direction: column; gap: 4px;
@@ -212,6 +226,27 @@ body {
 .shelf-row:hover .shelf-del, .shelf-del:focus-visible { opacity: 1; }
 .shelf-del:hover { color: var(--ink); background: #8080801a; }
 
+.shelf-actions { flex: 0 0 auto; align-self: center; position: relative; }
+.shelf-more {
+  display: grid; place-items: center; width: 32px; height: 32px; padding: 0; cursor: pointer;
+  border: 1px solid transparent; border-radius: 8px; background: none; color: var(--dim);
+  font: inherit; font-size: 15px; letter-spacing: 1px;
+}
+.shelf-more:hover, .shelf-more[aria-expanded="true"] { color: var(--ink); background: var(--soft); border-color: var(--line); }
+.shelf-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.shelf-menu {
+  position: absolute; z-index: 2; top: calc(100% + 4px); right: 0; min-width: 190px;
+  padding: 4px; display: flex; flex-direction: column; background: var(--card);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.shelf-menu:focus { outline: none; }
+.shelf-menu-item {
+  font: inherit; font-size: calc(12.5px * var(--text-scale, 1)); text-align: left; cursor: pointer;
+  padding: 7px 9px; border: 0; border-radius: 5px; color: var(--ink); background: none;
+}
+.shelf-menu-item:hover, .shelf-menu-item.active { background: var(--soft); }
+.shelf-menu-item.danger { color: var(--accent); }
+
 .shelf-confirm {
   flex: 0 0 auto; align-self: center; display: flex; align-items: center; gap: 8px;
   padding-right: 2px;
@@ -233,6 +268,13 @@ body {
    and the confirm step is what carries the weight here. */
 .shelf-act.danger { border-color: var(--accent); color: var(--accent); background: var(--soft); }
 .shelf-act[disabled] { opacity: .55; cursor: default; }
+
+@media (max-width: 420px) {
+  .home { gap: 20px; }
+  .shelf-menu { min-width: 175px; }
+  .shelf-confirm { flex-wrap: wrap; justify-content: flex-end; }
+  .shelf-ask { flex-basis: 100%; text-align: right; }
+}
 
 /* ---- add-book modal ---- */
 .modal-scrim {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { audioFile } from '@cairn/core/store/library';
 import type { LibraryEntry } from '@cairn/core/store/library';
+import { emptyCatalog, type CatalogFile } from '@cairn/core/catalog/types';
 import { stationHeat } from '@cairn/core/store/asks';
 import {
   CompanionPane, DeckPane, StagePane, Splitter, PanelToggle, SettingsPanel, useSplit, useResume,
@@ -11,7 +12,7 @@ import {
 import { AddBook } from './AddBook';
 import { Home } from './Home';
 import {
-  chatCancel, chatClear, chatHistory, chatSend, deleteBook, focusStation, inShell, libraryBase,
+  chatCancel, chatClear, chatHistory, chatSend, deleteBook, focusStation, getCatalog, inShell, libraryBase,
   listBooks, onCompanionEvent, onDeckStatus, onOpenSettings, markBookFinished, resumeBook, retryBook, setMenuLocale,
   wereadStart,
 } from './bridge';
@@ -25,6 +26,7 @@ const CLEAR_COMMAND = '/clear';
 
 export function App(): ReactElement {
   const [books, setBooks] = useState<readonly LibraryEntry[]>([]);
+  const [catalog, setCatalog] = useState<CatalogFile>(() => emptyCatalog());
   const [bookId, setBookId] = useState<string>();
   const [adding, setAdding] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -51,8 +53,12 @@ export function App(): ReactElement {
   useEffect(() => {
     void (async () => {
       setBase(await libraryBase().catch(() => '.'));
-      const shelf = await listBooks().catch(() => []);
+      const [shelf, organization] = await Promise.all([
+        listBooks().catch(() => []),
+        getCatalog().catch(() => emptyCatalog()),
+      ]);
       setBooks(shelf);
+      setCatalog(organization);
       // Reopen whatever was being read, if it is still on the shelf. A path is
       // walked over several sittings; landing on the drop zone every launch
       // makes the reader find their place by hand.
@@ -243,6 +249,7 @@ export function App(): ReactElement {
       <div className="shell empty">
         <Home
           books={books}
+          catalog={catalog}
           {...(base ? { base } : {})}
           onAdd={() => setAdding(true)}
           onOpen={openBook}
