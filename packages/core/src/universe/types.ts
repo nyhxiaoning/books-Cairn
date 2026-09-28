@@ -103,6 +103,7 @@ const parseBook = (value: unknown): RelatedBook | undefined => {
   if (!id || !title || !authors || !role || !sharedTopics || !rationale || !sources || !evidence || !origin ||
     (value.isbn !== undefined && isbn === undefined) ||
     (linkedBookId !== undefined && !isBookId(linkedBookId)) ||
+    ((evidence === 'imported' || evidence === 'mapped' || evidence === 'finished') && linkedBookId === undefined) ||
     (value.roleEdited !== undefined && roleEdited === undefined) ||
     (evidence === 'sourced' && sources.length === 0)) return undefined;
 

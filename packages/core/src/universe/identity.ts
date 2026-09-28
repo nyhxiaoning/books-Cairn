@@ -12,7 +12,8 @@ export interface BookIdentityEntry extends BookIdentityInput {
 }
 
 const normalizedText = (value: string): string =>
-  value.normalize('NFKC').toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '');
+  value.normalize('NFKC').toLocaleLowerCase().replace(/[\s\p{P}]+/gu, (punctuation) =>
+    punctuation.match(/#/g)?.join('') ?? '');
 
 const normalizedAuthors = (value: BookIdentityInput): readonly string[] => {
   const authors = value.authors ?? (value.author === undefined ? [] : [value.author]);

@@ -66,9 +66,25 @@ test('parsing keeps no more than ten generated candidates and rejects duplicate 
     .toHaveLength(1);
 });
 
+test('parsing keeps symbol-bearing titles as separate identities', () => {
+  expect(parseUniverse({
+    ...universeWith(0),
+    books: [sourced('c', 'C'), sourced('cpp', 'C++'), sourced('csharp', 'C#')],
+  })?.books).toHaveLength(3);
+});
+
 test('source URLs must be HTTP(S)', () => {
   expect(parseUniverse({
     ...universeWith(1),
     books: [{ ...sourced('bad-url'), sources: [{ title: 'Bad', url: 'file:///private/book' }] }],
   })?.books).toHaveLength(0);
+});
+
+test('local evidence requires a linked shelf book', () => {
+  for (const evidence of ['imported', 'mapped', 'finished']) {
+    expect(parseUniverse({
+      ...universeWith(1),
+      books: [{ ...sourced(evidence), evidence }],
+    })?.books).toHaveLength(0);
+  }
 });

@@ -39,6 +39,15 @@ test('normalizes NFKC title punctuation and author case', () => {
     .toEqual({ linkedBookId: 'local', ambiguous: [] });
 });
 
+test('preserves title symbols that distinguish books', () => {
+  const c = bookIdentity(candidate({ title: 'C' }));
+  const cpp = bookIdentity(candidate({ title: 'C++' }));
+  const csharp = bookIdentity(candidate({ title: 'C#' }));
+  expect(c).not.toBe(cpp);
+  expect(c).not.toBe(csharp);
+  expect(cpp).not.toBe(csharp);
+});
+
 test('a title match without candidate authors remains uncertain', () => {
   expect(matchRelatedBook(candidate({ authors: [] }), [{
     id: 'local', title: 'The Signal', author: 'Ada Lovelace',
