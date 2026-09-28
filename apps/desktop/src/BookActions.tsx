@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import type { ReactElement } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactElement } from 'react';
 import { errorText, useT } from '@cairn/ui';
 import { payloadOf } from '@cairn/core/errors';
 
@@ -21,6 +21,7 @@ export function BookActions({
   const [failed, setFailed] = useState<string>();
   const trigger = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
+  const items = useRef<(HTMLButtonElement | null)[]>([]);
   const menuId = useId();
 
   const close = useCallback((restoreFocus = true) => {
@@ -34,13 +35,15 @@ export function BookActions({
     ...(onEditCatalog ? [{ label: t.home.editCatalog, run: () => onEditCatalog(bookId) }] : []),
     ...(onDelete ? [{ label: t.home.delete, run: () => setConfirming(true), danger: true }] : []),
   ];
-  const actionsRef = useRef(actions);
-  actionsRef.current = actions;
+  const focus = (index: number): void => {
+    setActive(index);
+    items.current[index]?.focus();
+  };
 
   useEffect(() => {
     if (!open) return;
     setActive(0);
-    menu.current?.focus();
+    items.current[0]?.focus();
   }, [open]);
 
   useEffect(() => {
@@ -52,18 +55,7 @@ export function BookActions({
       close(false);
     };
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') { event.preventDefault(); close(); return; }
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        const count = actionsRef.current.length;
-        if (count > 0) setActive((at) => (at + (event.key === 'ArrowDown' ? 1 : -1) + count) % count);
-        return;
-      }
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        actionsRef.current[active]?.run();
-        close(false);
-      }
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
     };
 
     document.addEventListener('mousedown', onDown);
@@ -72,7 +64,24 @@ export function BookActions({
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
     };
-  }, [active, close, open]);
+  }, [close, open]);
+
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (actions.length === 0) return;
+      event.preventDefault();
+      const step = event.key === 'ArrowDown' ? 1 : -1;
+      focus((active + step + actions.length) % actions.length);
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      const index = items.current.findIndex((item) => item === event.target);
+      if (index < 0) return;
+      event.preventDefault();
+      actions[index]?.run();
+      close(false);
+    }
+  };
 
   const remove = async (): Promise<void> => {
     if (!onDelete) return;
@@ -117,14 +126,17 @@ export function BookActions({
         <span aria-hidden="true">•••</span>
       </button>
       {open && (
-        <div className="shelf-menu" id={menuId} ref={menu} role="menu" tabIndex={-1}>
+        <div className="shelf-menu" id={menuId} ref={menu} role="menu" onKeyDown={onMenuKeyDown}>
           {actions.map((action, index) => (
             <button
               key={action.label}
               type="button"
+              ref={(element) => { items.current[index] = element; }}
               role="menuitem"
+              tabIndex={index === active ? 0 : -1}
               className={['shelf-menu-item', index === active ? 'active' : '', action.danger ? 'danger' : ''].filter(Boolean).join(' ')}
-              onMouseEnter={() => setActive(index)}
+              onFocus={() => setActive(index)}
+              onMouseEnter={() => focus(index)}
               onClick={(event) => {
                 event.stopPropagation();
                 action.run();

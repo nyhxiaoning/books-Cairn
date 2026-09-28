@@ -86,7 +86,7 @@ export function Home({
               type="search"
               className="shelf-search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onInput={(event) => setQuery(event.currentTarget.value)}
               placeholder={t.home.searchBooks}
               aria-label={t.home.searchBooks}
             />
