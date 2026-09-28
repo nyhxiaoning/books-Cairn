@@ -19,12 +19,14 @@ import { useT } from '../settings/SettingsProvider';
  * a custom menu feel worse than the select it replaced.
  */
 export function BookMenu({
-  title, books, currentId, onSwitch, onAdd, onHome, onSettings,
+  title, books, currentId, onSwitch, onDetails, onUniverse, onAdd, onHome, onSettings,
 }: {
   title: string;
   books: readonly LibraryEntry[];
   currentId: string;
   onSwitch?: (bookId: string) => void;
+  onDetails?: () => void;
+  onUniverse?: () => void;
   /** Absent outside the desktop shell, where generation is not possible. */
   onAdd?: () => void;
   /** Back to the shelf: the only route to the home screen once a book is open. */
@@ -47,12 +49,18 @@ export function BookMenu({
    */
   const rows: readonly (() => void)[] = [
     ...books.map((b) => () => choose(b.id)),
+    ...(onDetails ? [() => run(onDetails)] : []),
+    ...(onUniverse ? [() => run(onUniverse)] : []),
     ...(onAdd ? [() => run(onAdd)] : []),
     ...(onSettings ? [() => run(onSettings)] : []),
     ...(onHome ? [() => run(onHome)] : []),
   ];
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  const detailsIndex = books.length;
+  const universeIndex = detailsIndex + (onDetails ? 1 : 0);
+  const addIndex = universeIndex + (onUniverse ? 1 : 0);
+  const settingsIndex = addIndex + (onAdd ? 1 : 0);
 
   const close = useCallback((restoreFocus = true) => {
     setOpen(false);
@@ -153,14 +161,44 @@ export function BookMenu({
           ))}
           </div>
 
-          {(onAdd || onSettings || onHome) && <div className="book-sep" />}
+          {(onDetails || onUniverse || onAdd || onSettings || onHome) && <div className="book-sep" />}
+
+          {onDetails && (
+            <button
+              type="button"
+              role="menuitem"
+              className={rowClass('book-item action', detailsIndex, active, false)}
+              onMouseEnter={() => setActive(detailsIndex)}
+              onClick={() => run(onDetails)}
+            >
+              <span className="book-check" aria-hidden="true">ⓘ</span>
+              <span className="book-item-body">
+                <span className="book-item-name">{t.menu.bookDetails}</span>
+              </span>
+            </button>
+          )}
+
+          {onUniverse && (
+            <button
+              type="button"
+              role="menuitem"
+              className={rowClass('book-item action', universeIndex, active, false)}
+              onMouseEnter={() => setActive(universeIndex)}
+              onClick={() => run(onUniverse)}
+            >
+              <span className="book-check" aria-hidden="true">◎</span>
+              <span className="book-item-body">
+                <span className="book-item-name">{t.menu.bookUniverse}</span>
+              </span>
+            </button>
+          )}
 
           {onAdd && (
             <button
               type="button"
               role="menuitem"
-              className={rowClass('book-item action', books.length, active, false)}
-              onMouseEnter={() => setActive(books.length)}
+              className={rowClass('book-item action', addIndex, active, false)}
+              onMouseEnter={() => setActive(addIndex)}
               onClick={() => run(onAdd)}
             >
               <span className="book-check" aria-hidden="true">＋</span>
@@ -174,8 +212,8 @@ export function BookMenu({
             <button
               type="button"
               role="menuitem"
-              className={rowClass('book-item action', books.length + (onAdd ? 1 : 0), active, false)}
-              onMouseEnter={() => setActive(books.length + (onAdd ? 1 : 0))}
+              className={rowClass('book-item action', settingsIndex, active, false)}
+              onMouseEnter={() => setActive(settingsIndex)}
               onClick={() => run(onSettings)}
             >
               <span className="book-check" aria-hidden="true">⚙</span>

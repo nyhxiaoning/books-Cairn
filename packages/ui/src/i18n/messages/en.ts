@@ -136,6 +136,8 @@ export const en = {
 
   menu: {
     addBook: 'Add a book',
+    bookDetails: 'Book details',
+    bookUniverse: 'Book universe',
     backToShelf: 'Back to the shelf',
     settings: 'Settings…',
   },

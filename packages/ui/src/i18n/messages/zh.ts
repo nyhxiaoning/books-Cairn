@@ -126,6 +126,8 @@ export const zh: Messages = {
 
   menu: {
     addBook: '添加一本书',
+    bookDetails: '书籍详情',
+    bookUniverse: '书籍宇宙',
     backToShelf: '返回书架',
     settings: '设置…',
   },

@@ -14,7 +14,7 @@ import { useT } from '../settings/SettingsProvider';
  * point of the thing.
  */
 export function StagePane({
-  path, decks, currentId, onPick, books = [], onSwitchBook, onAdd, onHome, onSettings,
+  path, decks, currentId, onPick, books = [], onSwitchBook, onDetails, onUniverse, onAdd, onHome, onSettings,
   failed, heat, complete = true, collapsed = false,
 }: {
   path: Path;
@@ -29,6 +29,8 @@ export function StagePane({
   complete?: boolean;
   books?: readonly LibraryEntry[];
   onSwitchBook?: (bookId: string) => void;
+  onDetails?: () => void;
+  onUniverse?: () => void;
   /** Absent outside the desktop shell, where generation is not possible. */
   onAdd?: () => void;
   /** Back to the shelf. */
@@ -55,6 +57,8 @@ export function StagePane({
             books={books}
             currentId={path.bookId}
             onSwitch={onSwitchBook}
+            onDetails={onDetails}
+            onUniverse={onUniverse}
             onAdd={onAdd}
             onHome={onHome}
             onSettings={onSettings}

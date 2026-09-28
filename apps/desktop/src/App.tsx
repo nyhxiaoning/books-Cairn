@@ -370,6 +370,8 @@ export function App(): ReactElement {
         onPick={setCurrentId}
         books={books}
         onSwitchBook={(id) => { if (chat.pendingTurn) void chatCancel(chat.pendingTurn); openBook(id); setCurrentId(undefined); setChat(emptyCompanionView(id)); }}
+        onDetails={() => openDetails(path.bookId)}
+        onUniverse={() => openDetails(path.bookId, 'universe')}
         onAdd={inShell ? () => setAdding(true) : undefined}
         onHome={goHome}
         onSettings={() => setSettingsOpen(true)}
