@@ -24,10 +24,28 @@ export interface ExportService {
 
 const FFMPEG_FALLBACK = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
 
+/**
+ * A GUI-launched .app inherits the system PATH (/usr/bin:/bin:/usr/sbin:/sbin),
+ * which never includes Homebrew, so a bare "ffmpeg" fails there even though it
+ * works from the terminal. Probe the common install locations before giving up.
+ */
+const FFMPEG_CANDIDATES = process.platform === 'darwin'
+  ? ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', FFMPEG_FALLBACK]
+  : [FFMPEG_FALLBACK];
+
+const resolveFfmpeg = async (override?: string): Promise<string> => {
+  if (override) return override;
+  for (const candidate of FFMPEG_CANDIDATES) {
+    if (candidate === FFMPEG_FALLBACK) return candidate;
+    if (await Bun.file(candidate).exists()) return candidate;
+  }
+  return FFMPEG_FALLBACK;
+};
+
 export function createExportService(deps: {
   readonly library: Pick<Library, 'root' | 'loadPath' | 'readDeckIndex'>;
   readonly dataDir: string;
-  /** Injected for tests; production resolves the binary on PATH. */
+  /** Injected for tests; production probes Homebrew locations then PATH. */
   readonly ffmpegPath?: string;
   readonly now?: () => string;
 }): ExportService {
@@ -47,7 +65,7 @@ export function createExportService(deps: {
       const plan = audioPlan(path, installed, deps.library.root);
       if (plan.order.length === 0) throw new ExportError('no_audio');
 
-      const ffmpeg = deps.ffmpegPath ?? FFMPEG_FALLBACK;
+      const ffmpeg = await resolveFfmpeg(deps.ffmpegPath);
       const outDir = exportsDir(bookId);
       await mkdir(outDir, { recursive: true });
       const outPath = join(outDir, exportFileName(path.title, today(), 'mp3'));
