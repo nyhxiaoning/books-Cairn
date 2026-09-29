@@ -9,16 +9,14 @@ import { escapeXml } from '@cairn/core/companion/xml';
 import { isBookId } from '@cairn/core/store/library';
 import { isFinished } from '@cairn/core/store/reading';
 import type { SourceKind } from '@cairn/core/types';
-import { effectiveSearchKey, readSettings } from '../settings';
+import { readSettings } from '../settings';
 import { readReadingRecord } from '../reading';
 import { DATA_DIR, library } from '../store';
 import { openUniverseStore } from '@cairn/core/store/universe-disk';
-import { webSearch } from './search-provider';
 import { readChapters, readNotes } from './book-tools';
 import { resolveChatModel, type ChatModelResolution } from './model';
 import { recallReading } from './shelf-tools';
 import { loadSession, saveSession } from './session';
-import { fetchWeb, searchWeb } from './web-tools';
 import { consultUniverse, readUniverseChapters } from './universe-tools';
 import { loadWorking, saveWorking } from './working';
 import { compactToolContext, visibleToolResultIds } from './tool-context';
@@ -184,7 +182,7 @@ function instruction(locale: UiLocale, kind: SourceKind): string {
 <rules>${kind === 'notes' ? `\n${NOTES_RULE}` : ''}
 <rule>For claims about this book, call read_notes or read_chapter before answering. Do not infer the book's contents from its title.</rule>
 <rule>Quote the current book only from text returned by read_chapter in this turn. Never invent a quotation.</rule>
-<rule>For current or uncertain outside facts, you may freely search_web and fetch_web. A search snippet alone does not support a detailed claim; fetch the page before relying on it.</rule>
+<rule>Answer from the reader's own library: this book's notes and chapters, linked expert books, and your own knowledge. You have no web tools — say so when something needs today's information, and never invent a source.</rule>
 <rule>Call ask_user only when a material ambiguity cannot be resolved from available context. It is not a permission gate for web search.</rule>
 <rule>For relevant completed books, use recall_reading. Do not claim to have read a book without a result.</rule>
 <rule>For cross-book questions, consult_universe finds positions in the reader's linked expert books; read_universe_chapter verifies a direct quotation from that book. Unlinked candidate books are recommendations only — never attribute an argument to them.</rule>
@@ -234,8 +232,6 @@ async function summarize(prompt: string, model: ChatModelResolution, signal?: Ab
 function makeTools(
   bookId: string, signal: AbortSignal | undefined,
   record: (name: string, resultId: string, text: string, evidence?: EvidenceRecord) => void,
-  searchProvider: 'brave' | 'firecrawl' | 'tavily',
-  searchKey: string | undefined,
   fetched: Map<string, ReadonlyMap<number, string>>,
   experts: readonly { readonly bookId: string; readonly bookTitle: string }[],
   expertBookIds: readonly string[],
@@ -248,8 +244,6 @@ function makeTools(
   const indices4 = Type.Object({ indices: Type.Array(Type.Integer({ minimum: 0 }), { minItems: 1, maxItems: 4 }) });
   const indices2 = Type.Object({ indices: Type.Array(Type.Integer({ minimum: 0 }), { minItems: 1, maxItems: 2 }) });
   const query200 = Type.Object({ query: Type.String({ minLength: 1, maxLength: 200 }) });
-  const query300 = Type.Object({ query: Type.String({ minLength: 1, maxLength: 300 }) });
-  const url2000 = Type.Object({ url: Type.String({ minLength: 1, maxLength: 2_000 }) });
   const clarification = Type.Object({
     question: Type.String({ minLength: 1, maxLength: 500 }),
     options: Type.Array(Type.String({ minLength: 1, maxLength: 120 }), { maxItems: 4 }),
@@ -321,18 +315,6 @@ function makeTools(
         return result('read_universe_chapter', value);
       },
     } satisfies AgentTool<ReturnType<typeof Type.Object>>,
-    {
-      name: 'search_web', label: 'Search the web',
-      description: '<tool>Search public web pages using a short query. Search snippets are leads, not citations.</tool>',
-      parameters: query300,
-      execute: async (_id, args: unknown) => result('search_web', await searchWeb(stringArg(args, 'query'), webSearch(searchProvider, searchKey), signal)),
-    } satisfies AgentTool<typeof query300>,
-    {
-      name: 'fetch_web', label: 'Fetch a web page',
-      description: '<tool>Read bounded text from a public HTTP or HTTPS page before relying on it.</tool>',
-      parameters: url2000,
-      execute: async (_id, args: unknown) => result('fetch_web', await fetchWeb(stringArg(args, 'url'), {}, signal)),
-    } satisfies AgentTool<typeof url2000>,
     {
       name: 'ask_user', label: 'Ask the reader',
       description: '<tool>Ask a necessary clarifying question and optionally offer up to four choices. This ends the current companion turn.</tool>',
@@ -434,7 +416,7 @@ export async function runTurn(
     const tools = makeTools(input.bookId, input.signal, (name, resultId, text, evidence) => {
       if (evidence) turnEvidence.push(evidence);
       toolMessages.push({ id: randomUUID(), role: 'tool', name, resultId, text, at: new Date().toISOString() });
-    }, settings.searchProvider, effectiveSearchKey(settings), fetchedChapters,
+    }, fetchedChapters,
     linkedExperts, expertBookIds, (question, options) => { clarification = { question, options }; });
     let calls = 0;
     let visibleCurrent = new Set<string>();

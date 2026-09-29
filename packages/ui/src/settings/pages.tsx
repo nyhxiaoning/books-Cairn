@@ -7,7 +7,6 @@ import { useUi } from './SettingsProvider';
 import { TEXT_SIZES, THEMES, type TextSize, type ThemeChoice } from './prefs';
 import type { NarrationLanguage, ShellSettings } from './shell';
 import { Offline, Row, SecretField, Section, Segmented, Select, StackedRow, Switch } from './rows';
-import { AUTHORITATIVE_DOMAINS } from './authoritative';
 
 const LOCALE_LABEL: Readonly<Record<Locale, string>> = {
   en: 'English (US)',
@@ -179,122 +178,11 @@ function VoiceRow({ shell, locale }: { shell: ShellSettings; locale: Locale }): 
   );
 }
 
-type KeyedService = 'brave' | 'firecrawl' | 'tavily' | 'weread';
+type KeyedService = 'weread';
 
 const SEARCH_KEY_URL: Readonly<Record<KeyedService, string>> = {
-  brave: 'https://api-dashboard.search.brave.com/app/keys',
-  firecrawl: 'https://www.firecrawl.dev/app/api-keys',
-  tavily: 'https://app.tavily.com/home',
   weread: 'https://weread.qq.com/r/weread-skills',
 };
-
-export function SearchPage({ shell }: { shell?: ShellSettings }): ReactElement {
-  const { t } = useUi();
-  const providerId = useId();
-
-  if (!shell) return <Offline title={t.settings.pages.search} />;
-
-  return (
-    <Section title={t.settings.pages.search}>
-      <Row label={t.settings.search.searchProvider} hint={t.settings.search.searchProviderHint} htmlFor={providerId}>
-        <Select
-          id={providerId}
-          value={shell.prefs.searchProvider}
-          choices={[
-            { value: 'brave', label: t.settings.search.braveProvider },
-            { value: 'firecrawl', label: t.settings.search.firecrawlProvider },
-            { value: 'tavily', label: t.settings.search.tavilyProvider },
-          ]}
-          onPick={(value) => shell.setPref('searchProvider', value)}
-        />
-      </Row>
-      <SearchKeyRow
-        shell={shell}
-        which="brave"
-        label={t.settings.search.brave}
-        hint={t.settings.search.braveHint}
-      />
-      <SearchKeyRow
-        shell={shell}
-        which="firecrawl"
-        label={t.settings.search.firecrawl}
-        hint={t.settings.search.firecrawlHint}
-      />
-      <SearchKeyRow
-        shell={shell}
-        which="tavily"
-        label={t.settings.search.tavily}
-        hint={t.settings.search.tavilyHint}
-      />
-      <ScopeRow shell={shell} />
-    </Section>
-  );
-}
-
-/** How much of the web discovery may read, and which sources it trusts. */
-function ScopeRow({ shell }: { shell: ShellSettings }): ReactElement {
-  const { t } = useUi();
-  const pagesId = useId();
-  const charsId = useId();
-  const domainsId = useId();
-
-  return (
-    <>
-      <StackedRow
-        label={t.settings.search.scopePages}
-        hint={t.settings.search.scopePagesHint}
-        htmlFor={pagesId}
-      >
-        <input
-          id={pagesId}
-          type="number" min={3} max={24} step={1}
-          value={shell.prefs.searchMaxPages}
-          onChange={(event) => shell.setPref('searchMaxPages', Number(event.currentTarget.value))}
-          className="set-input"
-        />
-      </StackedRow>
-      <StackedRow
-        label={t.settings.search.scopeChars}
-        hint={t.settings.search.scopeCharsHint}
-        htmlFor={charsId}
-      >
-        <input
-          id={charsId}
-          type="number" min={500} max={20000} step={500}
-          value={shell.prefs.searchMaxPageChars}
-          onChange={(event) => shell.setPref('searchMaxPageChars', Number(event.currentTarget.value))}
-          className="set-input"
-        />
-      </StackedRow>
-      <StackedRow
-        label={t.settings.search.scopeDomains}
-        hint={t.settings.search.scopeDomainsHint}
-        htmlFor={domainsId}
-      >
-        <textarea
-          id={domainsId}
-          rows={4}
-          className="set-input"
-          value={shell.prefs.searchAllowedDomains.join('\n')}
-          placeholder={t.settings.search.scopeDomainsPlaceholder}
-          onChange={(event) => shell.setPref(
-            'searchAllowedDomains',
-            event.currentTarget.value.split('\n').map((line) => line.trim()).filter(Boolean),
-          )}
-        />
-      </StackedRow>
-      <Row label="" hint="">
-        <button
-          type="button"
-          className="shelf-act"
-          onClick={() => shell.setPref('searchAllowedDomains', [...AUTHORITATIVE_DOMAINS])}
-        >
-          {t.settings.search.scopePreset}
-        </button>
-      </Row>
-    </>
-  );
-}
 
 export function WereadPage({ shell }: { shell?: ShellSettings }): ReactElement {
   const { t } = useUi();

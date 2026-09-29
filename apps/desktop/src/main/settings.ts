@@ -20,12 +20,6 @@ export const writeSettings = settingsStore.write;
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-export function effectiveSearchKey(settings: ShellSettingsValues, env: Env = process.env): string | undefined {
-  if (settings.searchProvider === 'brave') return resolveSecret(settings.braveKey, env);
-  if (settings.searchProvider === 'firecrawl') return resolveSecret(settings.firecrawlKey, env);
-  return resolveSecret(settings.tavilyKey, env);
-}
-
 export function effectiveWereadKey(settings: ShellSettingsValues, env: Env = process.env): string | undefined {
   return resolveSecret(settings.wereadKey, env);
 }

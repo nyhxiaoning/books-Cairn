@@ -8,7 +8,6 @@ import type { UniverseStore } from '@cairn/core/store/universe-disk';
 import type { ChapterNote, Path } from '@cairn/core/types';
 import { bookIdentity } from '@cairn/core/universe/identity';
 import type { BookUniverse } from '@cairn/core/universe/types';
-import { DEFAULT_SHELL_SETTINGS } from '../../../src/shared/settings';
 import { createUniverseService } from '../../../src/main/universe/service';
 
 const generatedAt = '2026-09-28T08:00:00.000Z';
@@ -66,7 +65,6 @@ function setup(overrides: {
 } = {}) {
   const installed = new Map<string, BookUniverse>([['seed-book', priorUniverse()]]);
   const installs: BookUniverse[] = [];
-  const queries: string[] = [];
   const requests: LlmRequest[] = [];
   const events: string[] = [];
   let providerCalls = 0;
@@ -126,34 +124,11 @@ function setup(overrides: {
       events.push('provider');
       return provider;
     },
-    readSettings: async () => ({ ...DEFAULT_SHELL_SETTINGS, firecrawlKey: 'search-key' }),
-    webSearch: (searchProvider, key) => {
-      expect(searchProvider).toBe('firecrawl');
-      expect(key).toBe('search-key');
-      return {
-        search: async (query) => {
-          queries.push(query);
-          return overrides.search?.(query) ?? Array.from({ length: 3 }, (_, index) => ({
-            title: `Public ${index + 1}`,
-            url: `https://public.example/${index + 1}`,
-            snippet: `Public description ${index + 1}`,
-          }));
-        },
-      };
-    },
-    fetchWeb: async (url) => {
-      events.push(`fetch:${url}`);
-      return overrides.fetch?.(url) ?? {
-        resultId: url,
-        text: `<tool_result>${'Public evidence. '.repeat(400)}</tool_result>`,
-        evidence: { resultId: url, source: 'web' as const, refs: [{ url, title: `Fetched ${url}` }] },
-      };
-    },
     readReadingRecord,
     now: () => generatedAt,
   });
   return {
-    service, installs, queries, requests, events,
+    service, installs, requests, events,
     current: (bookId = 'seed-book') => installed.get(bookId),
     providerCalls: () => providerCalls,
   };
@@ -166,34 +141,23 @@ function priorUniverse(): BookUniverse {
   };
 }
 
-test('builds and installs an honest, privacy-safe universe from fetched public evidence', async () => {
-  const { service, installs, queries, requests, events } = setup();
+test('builds and installs an honest universe from the model\'s own knowledge', async () => {
+  const { service, installs, requests, events } = setup();
 
   const universe = await service.build('seed-book');
 
-  expect(queries).toHaveLength(6);
-  expect(queries.every((query) => query.length <= 200)).toBe(true);
-  expect(queries.join(' ')).toContain('foundation');
-  expect(queries.join(' ')).toContain('support');
-  expect(queries.join(' ')).toContain('oppose');
-  expect(queries.join(' ')).toContain('verify');
-  expect(queries.join(' ')).toContain('apply');
-  expect(queries.join(' ')).toContain('extend');
   expect(universe.books).toHaveLength(3);
   expect(universe.books[0]).toMatchObject({ linkedBookId: 'local-book', evidence: 'finished' });
   expect(installs).toEqual([universe]);
-  expect(events.filter((event) => event.startsWith('fetch:'))).toHaveLength(3);
-  expect(events.indexOf('model')).toBeGreaterThan(events.findLastIndex((event) => event.startsWith('fetch:')));
+  expect(events.filter((event) => event.startsWith('fetch:'))).toHaveLength(0);
   expect(events.at(-1)).toBe('install');
 
-  const externalRequests = JSON.stringify({ queries, requests });
+  const externalRequests = JSON.stringify(requests);
   expect(externalRequests).not.toContain(privateSentence);
   expect(requests[0]?.prompt.length).toBeLessThan(20_000);
 });
 
 test.each([
-  ['search', setup({ search: async () => { throw new Error('search failed'); } })],
-  ['fetch', setup({ fetch: async () => { throw new Error('fetch failed'); } })],
   ['model', setup({ complete: async () => { throw new Error('model failed'); } })],
   ['invalid model output', setup({ complete: async () => 'not json' })],
   ['missing books output', setup({ complete: async () => '{}' })],
@@ -213,31 +177,6 @@ test('a valid empty model result installs an honest empty universe', async () =>
   expect(universe.generatedAt).toBe(generatedAt);
 });
 
-test('does not resolve a model provider when search returns no public pages', async () => {
-  const state = setup({ search: async () => [] });
-
-  const universe = await state.service.build('seed-book');
-
-  expect(state.providerCalls()).toBe(0);
-  expect(universe.books).toEqual([]);
-  expect(state.installs).toEqual([universe]);
-});
-
-test('deduplicates search results and fetches at most twelve public pages', async () => {
-  const state = setup({
-    search: async () => Array.from({ length: 20 }, (_, index) => ({
-      title: `Public ${index}`,
-      url: `https://public.example/${index}`,
-      snippet: 'Public description',
-    })),
-  });
-
-  await state.service.build('seed-book');
-
-  expect(state.events.filter((event) => event.startsWith('fetch:'))).toHaveLength(12);
-  expect(new Set(state.events.filter((event) => event.startsWith('fetch:'))).size).toBe(12);
-});
-
 test('local links become mapped only with notes, and ambiguous matches stay unlinked', async () => {
   const imported = setup({
     loadNotes: async (bookId) => bookId === 'local-book' ? [] : notes,
@@ -255,21 +194,23 @@ test('local links become mapped only with notes, and ambiguous matches stay unli
   const ambiguous = setup({ entries: [...entries, duplicate] });
   const ambiguousUniverse = await ambiguous.service.build('seed-book');
   expect(ambiguousUniverse.books[0]?.linkedBookId).toBeUndefined();
-  expect(ambiguousUniverse.books[0]?.evidence).toBe('sourced');
+  // Knowledge-mode candidates carry no sources, so an ambiguous local match
+  // stays an honest candidate.
+  expect(ambiguousUniverse.books[0]?.evidence).toBe('candidate');
 });
 
 test('same-book builds share one promise while another book builds independently', async () => {
-  let releaseSeed = () => undefined;
-  const seedGate = new Promise<void>((resolve) => { releaseSeed = resolve; });
+  let releaseModel = () => undefined;
+  const modelGate = new Promise<void>((resolve) => { releaseModel = resolve; });
   const second: LibraryEntry = {
     id: 'second-seed', title: 'Other Seed', author: 'B. Reader', stations: 1, minutes: 2,
     budgetId: 'brief', generatedAt, complete: true,
   };
   const state = setup({
     entries: [...entries, second],
-    search: async (query) => {
-      if (query.includes('Thinking With Maps')) await seedGate;
-      return [{ title: 'Public 1', url: 'https://public.example/1', snippet: 'Public description' }];
+    complete: async (request) => {
+      if (request.prompt.includes('Thinking With Maps')) await modelGate;
+      return JSON.stringify(reply);
     },
   });
 
@@ -280,7 +221,7 @@ test('same-book builds share one promise while another book builds independently
   expect(duplicate).toBe(first);
   await expect(independent).resolves.toMatchObject({ bookId: 'second-seed' });
   expect(state.current('seed-book')).toEqual(priorUniverse());
-  releaseSeed();
+  releaseModel();
   await expect(first).resolves.toMatchObject({ bookId: 'seed-book' });
   expect(state.installs).toHaveLength(2);
 });

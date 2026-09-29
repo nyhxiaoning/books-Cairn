@@ -25,15 +25,8 @@ describe('parseSettings', () => {
       chatProvider: 'inherit',
       narration: 'en',
       voices: { en: 'en-US-AvaNeural', zh: 'zh-CN-XiaoxiaoNeural' },
-      searchProvider: 'firecrawl',
-      braveKey: 'brave-x',
-      firecrawlKey: 'fire-x',
-      tavilyKey: 'tvly-x',
       wereadKey: 'wrk-x',
       trace: true,
-      searchMaxPages: 16,
-      searchMaxPageChars: 6_000,
-      searchAllowedDomains: ['en.wikipedia.org', 'douban.com'],
     };
     expect(parseSettings(stored)).toEqual(stored);
   });
@@ -61,23 +54,6 @@ describe('parseSettings', () => {
     expect(parsed.providers.openai?.apiKey).toBe('openai-key');
     expect(parsed.providers.anthropic?.apiKey).toBe('anthropic-key');
     expect(parsed.chatProvider).toBe('anthropic');
-  });
-
-  test('a reader without a search key gets keyless web search by default', () => {
-    expect(parseSettings({}).searchProvider).toBe('firecrawl');
-  });
-
-  test('persists Tavily selection and rejects an unknown search provider', () => {
-    expect(parseSettings({ searchProvider: 'tavily' }).searchProvider).toBe('tavily');
-    expect(parseSettings({ searchProvider: 'brave' }).searchProvider).toBe('brave');
-    expect(parseSettings({ searchProvider: 'unknown' }).searchProvider).toBe('firecrawl');
-  });
-
-  test('an older saved Tavily key keeps its search destination after upgrade', () => {
-    expect(parseSettings({ tavilyKey: 'old-key' }).searchProvider).toBe('tavily');
-    expect(parseSettings({ searchProvider: 'keenable', tavilyKey: 'old-key' }).searchProvider).toBe('firecrawl');
-    expect(parseSettings({ searchProvider: 'keenable' }, { ...DEFAULT_SHELL_SETTINGS, searchProvider: 'tavily' }).searchProvider)
-      .toBe('firecrawl');
   });
 
   test('a providers block that is not an object falls back whole', () => {
@@ -124,7 +100,7 @@ describe('parseSettings', () => {
   });
 
   test('an empty key is kept, because it means “read the environment”', () => {
-    expect(parseSettings({ tavilyKey: '' }).tavilyKey).toBe('');
+    expect(parseSettings({ wereadKey: '' }).wereadKey).toBe('');
   });
 
   // Wrapped in objects: `test.each` spreads a bare array into zero arguments

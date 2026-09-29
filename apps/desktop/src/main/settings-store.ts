@@ -17,9 +17,8 @@ function isLegacy(raw: unknown): raw is Record<string, unknown> {
   return typeof raw === 'object' && raw !== null && (raw as { keyRefs?: unknown }).keyRefs !== KEY_REFS;
 }
 
-export function createSettingsStore(root: string, tavilyEnvKey = process.env.TAVILY_API_KEY) {
+export function createSettingsStore(root: string) {
   const file = join(root, 'settings.json');
-  const fallback = tavilyEnvKey ? { ...DEFAULT_SHELL_SETTINGS, searchProvider: 'tavily' as const } : DEFAULT_SHELL_SETTINGS;
   let cached: ShellSettingsValues | undefined;
   let queue: Promise<unknown> = Promise.resolve();
 
@@ -27,9 +26,9 @@ export function createSettingsStore(root: string, tavilyEnvKey = process.env.TAV
     if (cached) return cached;
     try {
       const raw = JSON.parse(await readFile(file, 'utf8')) as unknown;
-      cached = parseSettings(isLegacy(raw) ? upgradeLegacyKeys(raw) : raw, fallback);
+      cached = parseSettings(isLegacy(raw) ? upgradeLegacyKeys(raw) : raw);
     } catch {
-      cached = fallback;
+      cached = DEFAULT_SHELL_SETTINGS;
     }
     return cached;
   };

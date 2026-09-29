@@ -110,9 +110,6 @@ export function defaultApiKey(id: ProviderId): string {
 }
 
 export const KEY_ENV = {
-  braveKey: 'BRAVE_SEARCH_API_KEY',
-  firecrawlKey: 'FIRECRAWL_API_KEY',
-  tavilyKey: 'TAVILY_API_KEY',
   wereadKey: 'WEREAD_API_KEY',
 } as const;
 
@@ -137,17 +134,7 @@ export interface ShellSettingsValues {
   readonly chatProvider: ChatProvider;
   readonly narration: NarrationLanguage;
   readonly voices: Readonly<Record<ContentLocale, string>>;
-  readonly searchProvider: 'brave' | 'firecrawl' | 'tavily';
-  /** How many public pages the discovery stage may read per build. */
-  readonly searchMaxPages: number;
-  /** Per-page text budget in characters handed to the model. */
-  readonly searchMaxPageChars: number;
-  /** Public sources discovery may cite; empty means all results are allowed. */
-  readonly searchAllowedDomains: readonly string[];
   /** Each is a key, a `$NAME` reference, or empty for none. See `resolveSecret`. */
-  readonly braveKey: string;
-  readonly firecrawlKey: string;
-  readonly tavilyKey: string;
   readonly wereadKey: string;
   readonly trace: boolean;
 }
@@ -169,13 +156,6 @@ export const DEFAULT_SHELL_SETTINGS: ShellSettingsValues = {
   // From `pipeline/voice.ts`, not a second copy: the terminal path has no
   // settings file and falls back to those, and two lists would drift.
   voices: { en: DEFAULT_VOICES.en, zh: DEFAULT_VOICES.zh },
-  searchProvider: 'firecrawl',
-  searchMaxPages: 12,
-  searchMaxPageChars: 4_000,
-  searchAllowedDomains: [],
-  braveKey: envRef(KEY_ENV.braveKey),
-  firecrawlKey: envRef(KEY_ENV.firecrawlKey),
-  tavilyKey: envRef(KEY_ENV.tavilyKey),
   wereadKey: envRef(KEY_ENV.wereadKey),
   trace: false,
 };
@@ -303,19 +283,6 @@ export function parseSettings(
       en: known('en', voices.en) ?? fallback.voices.en,
       zh: known('zh', voices.zh) ?? fallback.voices.zh,
     },
-    searchProvider: raw.searchProvider === 'brave' || raw.searchProvider === 'firecrawl' || raw.searchProvider === 'tavily'
-      ? raw.searchProvider : raw.searchProvider === 'keenable' ? 'firecrawl'
-        : typeof raw.tavilyKey === 'string' && raw.tavilyKey.trim() && !envNameOf(raw.tavilyKey)
-          ? 'tavily' : fallback.searchProvider,
-    searchMaxPages: int(raw.searchMaxPages, fallback.searchMaxPages, 3, 24),
-    searchMaxPageChars: int(raw.searchMaxPageChars, fallback.searchMaxPageChars, 500, 20_000),
-    searchAllowedDomains: Array.isArray(raw.searchAllowedDomains)
-      ? raw.searchAllowedDomains.filter((d): d is string => typeof d === 'string' && d.trim().length > 0)
-        .map((d) => d.trim().toLowerCase()).slice(0, 20)
-      : fallback.searchAllowedDomains,
-    braveKey: str(raw.braveKey, fallback.braveKey),
-    firecrawlKey: str(raw.firecrawlKey, fallback.firecrawlKey),
-    tavilyKey: str(raw.tavilyKey, fallback.tavilyKey),
     wereadKey: str(raw.wereadKey, fallback.wereadKey),
     trace: typeof raw.trace === 'boolean' ? raw.trace : fallback.trace,
   };

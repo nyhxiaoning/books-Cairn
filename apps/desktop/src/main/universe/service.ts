@@ -1,20 +1,14 @@
-import type { WebSearch } from '@cairn/core/companion/web-search';
 import type { LlmProvider } from '@cairn/core/llm/types';
 import type { CatalogStore } from '@cairn/core/store/catalog-disk';
 import type { LibraryEntry } from '@cairn/core/store/library';
 import type { Library } from '@cairn/core/store/library-disk';
 import { isFinished, type ReadingRecord } from '@cairn/core/store/reading';
 import type { UniverseMutation, UniverseStore } from '@cairn/core/store/universe-disk';
-import { discoverRelations, type PublicEvidencePage } from '@cairn/core/universe/discover';
+import { discoverRelations } from '@cairn/core/universe/discover';
 import { matchRelatedBook } from '@cairn/core/universe/identity';
 import { deriveBookProfile, type BookProfile } from '@cairn/core/universe/profile';
 import { mergeUniverse, parseUniverse, type BookUniverse, type RelatedBook, type UniverseRole } from '@cairn/core/universe/types';
-import type { ShellSettingsValues } from '../../shared/settings';
-import { effectiveSearchKey } from '../settings';
-import type { FetchedWebResult } from '../companion/web-tools';
-
 const ROLES: readonly UniverseRole[] = ['foundation', 'support', 'oppose', 'verify', 'apply', 'extend'];
-const MAX_QUERY_LENGTH = 200;
 
 export interface UniverseService {
   get(bookId: string): Promise<BookUniverse | undefined>;
@@ -28,52 +22,9 @@ interface UniverseServiceDependencies {
   readonly catalog: Pick<CatalogStore, 'read'>;
   readonly store: UniverseStore;
   readonly providerFor: (bookId: string) => Promise<LlmProvider>;
-  readonly readSettings: () => Promise<ShellSettingsValues>;
-  readonly webSearch: (
-    provider: ShellSettingsValues['searchProvider'], key?: string,
-  ) => Pick<WebSearch, 'search'>;
-  readonly fetchWeb: (url: string, dependencies?: {}, signal?: AbortSignal) => Promise<FetchedWebResult>;
   readonly readReadingRecord: (bookId: string) => Promise<ReadingRecord | undefined>;
   readonly now: () => string;
 }
-
-const queryFor = (profile: BookProfile, role: UniverseRole): string => [
-  role, 'related books for', `"${profile.title}"`, profile.author, profile.category, ...profile.topics,
-].filter((part): part is string => Boolean(part)).join(' ').slice(0, MAX_QUERY_LENGTH);
-
-const uniqueUrls = (
-  results: readonly (readonly { readonly url: string }[])[],
-  scope: { readonly maxPages: number; readonly allowedDomains: readonly string[] },
-): readonly string[] => {
-  const urls: string[] = [];
-  const seen = new Set<string>();
-  const domainAllowed = (url: string): boolean => {
-    if (scope.allowedDomains.length === 0) return true;
-    try {
-      const host = new URL(url).hostname.toLowerCase();
-      return scope.allowedDomains.some((domain) => host === domain || host.endsWith(`.${domain}`));
-    } catch {
-      return false;
-    }
-  };
-  for (const result of results.flat()) {
-    if (!result.url || seen.has(result.url)) continue;
-    if (!domainAllowed(result.url)) continue;
-    seen.add(result.url);
-    urls.push(result.url);
-    if (urls.length === scope.maxPages) break;
-  }
-  return urls;
-};
-
-const evidencePage = (url: string, fetched: FetchedWebResult, maxChars: number): PublicEvidencePage => {
-  const source = fetched.evidence.refs[0];
-  return {
-    title: source !== undefined && 'url' in source ? source.title || url : url,
-    url: source !== undefined && 'url' in source ? source.url || url : url,
-    text: fetched.text.slice(0, maxChars),
-  };
-};
 
 async function enrichBook(
   book: RelatedBook,
@@ -129,21 +80,10 @@ export function createUniverseService(deps: UniverseServiceDependencies): Univer
       deps.catalog.read(),
       deps.library.loadNotes(bookId),
     ]);
+    // No external search adapters: candidates come from the model's own
+    // knowledge, validated against the shelf and local notes.
     const profile = deriveBookProfile(entry, catalog.records[bookId], notes);
-    const settings = await deps.readSettings();
-    const scope = {
-      maxPages: settings.searchMaxPages,
-      maxPageChars: settings.searchMaxPageChars,
-      allowedDomains: settings.searchAllowedDomains,
-    };
-    const search = deps.webSearch(settings.searchProvider, effectiveSearchKey(settings));
-    const results = await Promise.all(ROLES.map((role) => search.search(queryFor(profile, role), signal)));
-    const urls = uniqueUrls(results, scope);
-    const fetched = await Promise.all(urls.map(async (url) =>
-      evidencePage(url, await deps.fetchWeb(url, {}, signal), scope.maxPageChars)));
-    const discovered = fetched.length === 0
-      ? []
-      : await discoverRelations(profile, fetched, await deps.providerFor(bookId), signal);
+    const discovered = await discoverRelations(profile, [], await deps.providerFor(bookId), signal);
     const books = await enrichBooks(discovered, entries, deps);
     const generated = parseUniverse({
       version: 1,

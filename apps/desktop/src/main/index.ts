@@ -13,7 +13,6 @@ import { openUniverseStore } from '@cairn/core/store/universe-disk';
 import { createExportService } from './export/service';
 import { edgeTtsNarrator } from '@cairn/core/runtime';
 import { fetchWeb } from './companion/web-tools';
-import { webSearch } from './companion/search-provider';
 import { createHandlers } from './rpc';
 import { installMenu, OPEN_SETTINGS, OPEN_INSPECTOR } from './menu';
 import { providerFor } from './provider';
@@ -73,9 +72,6 @@ const universe = createUniverseService({
   catalog,
   store: universeStore,
   providerFor,
-  readSettings,
-  webSearch,
-  fetchWeb,
   readReadingRecord,
   now: () => new Date().toISOString(),
 });

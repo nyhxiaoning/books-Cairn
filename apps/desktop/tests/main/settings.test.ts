@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_SHELL_SETTINGS } from '../../src/shared/settings';
 import { createSettingsStore } from '../../src/main/settings-store';
-import { effectiveSearchKey, effectiveWereadKey } from '../../src/main/settings';
+import { effectiveWereadKey } from '../../src/main/settings';
 
 const dir = await mkdtemp(join(tmpdir(), 'cairn-settings-'));
 const { read: readSettings, write: writeSettings } = createSettingsStore(dir);
@@ -15,15 +15,13 @@ test('persists provider profiles and keys, and an empty field clears one', async
   await writeSettings({
     generationProvider: 'openai',
     providers: { openai: { apiKey: 'secret-model', baseUrl: 'https://example.test/v1', model: 'gpt-5.4-mini' } },
-    tavilyKey: 'secret-search',
   });
   expect((await readSettings()).providers.openai?.apiKey).toBe('secret-model');
-  expect((await readSettings()).tavilyKey).toBe('secret-search');
   expect(JSON.parse(await readFile(join(dir, 'settings.json'), 'utf8')).generationProvider).toBe('openai');
 
-  await writeSettings({ providers: { openai: { apiKey: '', baseUrl: '', model: '' } }, tavilyKey: '' });
+  await writeSettings({ providers: { openai: { apiKey: '', baseUrl: '', model: '' } }, wereadKey: '' });
   expect((await readSettings()).providers.openai?.apiKey).toBe('');
-  expect((await readSettings()).tavilyKey).toBe('');
+  expect((await readSettings()).wereadKey).toBe('');
 });
 
 /**
@@ -60,28 +58,7 @@ test('the Companion provider keeps its own key when generation changes', async (
   expect((await readSettings()).chatProvider).toBe('anthropic');
 });
 
-test('an existing environment Tavily key keeps Tavily as the search provider', async () => {
-  const legacyDir = await mkdtemp(join(tmpdir(), 'cairn-legacy-settings-'));
-  try {
-    const legacy = createSettingsStore(legacyDir, 'old-env-key');
-    expect((await legacy.read()).searchProvider).toBe('tavily');
-    await legacy.write({ searchProvider: 'firecrawl' });
-    expect((await legacy.read()).searchProvider).toBe('firecrawl');
-  } finally {
-    await rm(legacyDir, { recursive: true, force: true });
-  }
-});
 
-test('a key field is a key, a $NAME to read, or empty for none', () => {
-  const env = { BRAVE_SEARCH_API_KEY: 'env-brave', FIRECRAWL_API_KEY: 'env-fire', TAVILY_API_KEY: 'env-tavily', MINE: 'mine' };
-  const settings = { ...DEFAULT_SHELL_SETTINGS, braveKey: 'saved-brave', tavilyKey: '$MINE' };
-  expect(effectiveSearchKey({ ...settings, searchProvider: 'brave' }, env)).toBe('saved-brave');
-  expect(effectiveSearchKey({ ...settings, searchProvider: 'firecrawl' }, env)).toBe('env-fire');
-  expect(effectiveSearchKey({ ...settings, searchProvider: 'tavily' }, env)).toBe('mine');
-  expect(effectiveSearchKey({ ...settings, searchProvider: 'firecrawl' }, {})).toBeUndefined();
-  // Cleared means no key, not "fall back to the environment" as it once did
-  expect(effectiveSearchKey({ ...settings, searchProvider: 'firecrawl', firecrawlKey: '' }, env)).toBeUndefined();
-});
 
 test('a $NAME in the WeChat Reading field reads the environment', async () => {
   await writeSettings({ wereadKey: '$WEREAD_API_KEY' });
@@ -94,13 +71,12 @@ test('a $NAME in the WeChat Reading field reads the environment', async () => {
 test('a file from before $NAME keeps reading the environment; one written since keeps its empty', async () => {
   const legacyDir = await mkdtemp(join(tmpdir(), 'cairn-legacy-'));
   try {
-    await writeFile(join(legacyDir, 'settings.json'), JSON.stringify({ searchProvider: 'tavily', tavilyKey: '', braveKey: 'kept' }));
+    await writeFile(join(legacyDir, 'settings.json'), JSON.stringify({ wereadKey: '' }));
     const legacy = createSettingsStore(legacyDir);
-    expect((await legacy.read()).tavilyKey).toBe('$TAVILY_API_KEY');
-    expect((await legacy.read()).braveKey).toBe('kept');
+    expect((await legacy.read()).wereadKey).toBe('$WEREAD_API_KEY');
 
-    await legacy.write({ tavilyKey: '' });
-    expect((await createSettingsStore(legacyDir).read()).tavilyKey).toBe('');
+    await legacy.write({ wereadKey: '' });
+    expect((await createSettingsStore(legacyDir).read()).wereadKey).toBe('');
   } finally {
     await rm(legacyDir, { recursive: true, force: true });
   }
