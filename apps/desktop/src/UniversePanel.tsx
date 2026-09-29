@@ -27,9 +27,16 @@ export function UniversePanel({ section, state, onBuild, onPatch }: UniversePane
   const t = useT();
   const universe = universeOf(state);
   const [adding, setAdding] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const [role, setRole] = useState<UniverseRole>('support');
   const title = useRef<HTMLInputElement>(null);
   const authors = useRef<HTMLInputElement>(null);
+
+  /** The build is the suggestion: model-knowledge candidates the reader picks from. */
+  const suggest = async (): Promise<void> => {
+    setSuggesting(true);
+    try { await onBuild(); } finally { setSuggesting(false); }
+  };
 
   if (state.status === 'loading') {
     return <div className="universe-status" role="status">{t.details.universe.loading}</div>;
@@ -65,7 +72,9 @@ export function UniversePanel({ section, state, onBuild, onPatch }: UniversePane
 
       {state.status !== 'building' && (
         <div className="universe-actions">
-          <button type="button" className="shelf-act" onClick={() => onBuild()}>{action}</button>
+          <button type="button" className="shelf-act" disabled={suggesting} onClick={() => void suggest()}>
+            {suggesting ? t.details.universe.suggesting : action}
+          </button>
           {section === 'universe' && universe && (
             <button type="button" className="shelf-act" onClick={() => setAdding((value) => !value)}>
               {t.details.universe.addManual}

@@ -213,7 +213,7 @@ function SearchKeyRow({ shell, which, label, hint }: {
       htmlFor={id}
       aside={(
         <Link className="set-link" href={SEARCH_KEY_URL[which]}>
-          {t.settings.search.getKey}
+          {t.settings.weread.getKey}
         </Link>
       )}
     >
@@ -221,8 +221,8 @@ function SearchKeyRow({ shell, which, label, hint }: {
         id={id}
         value={shell.prefs[field]}
         onChange={(value) => shell.setPref(field, value)}
-        showLabel={t.settings.search.showKey}
-        hideLabel={t.settings.search.hideKey}
+        showLabel={t.settings.models.showKey}
+        hideLabel={t.settings.models.hideKey}
       />
     </StackedRow>
   );

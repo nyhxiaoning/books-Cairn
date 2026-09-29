@@ -106,8 +106,8 @@ function ProviderDetail({ shell, provider }: {
               id={keyId}
               value={profile?.apiKey ?? (provider.envKey ? `$${provider.envKey}` : '')}
               onChange={(value) => shell.setProvider(provider.id, { apiKey: value })}
-              showLabel={t.settings.search.showKey}
-              hideLabel={t.settings.search.hideKey}
+              showLabel={t.settings.models.showKey}
+              hideLabel={t.settings.models.hideKey}
             />
           </StackedRow>
 

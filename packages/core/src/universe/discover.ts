@@ -153,25 +153,60 @@ const normalizeBook = (
   };
 };
 
+/**
+ * Knowledge-mode candidates carry no web sources: their evidence is the
+ * model's own command of published non-fiction, so they enter the universe as
+ * plain candidates and the rationale is the reader-visible justification.
+ */
+const normalizeKnowledgeBook = (raw: unknown): RelatedBook | undefined => {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const candidate = raw as RawBook;
+  const title = string(candidate.title, MAX_TITLE);
+  const authors = strings(candidate.authors, MAX_AUTHORS, MAX_AUTHOR);
+  const role = isRole(candidate.role) ? candidate.role : undefined;
+  const sharedTopics = strings(candidate.sharedTopics, MAX_TOPICS, MAX_TOPIC);
+  const rationale = string(candidate.rationale, MAX_RATIONALE);
+  const rawIsbn = candidate.isbn;
+  const isbn = rawIsbn === null ? undefined : typeof rawIsbn === 'string' ? normalizeIsbn(rawIsbn) : undefined;
+  if (title === undefined || authors === undefined || role === undefined || sharedTopics === undefined ||
+    sharedTopics.length === 0 || rationale === undefined ||
+    (rawIsbn !== null && isbn === undefined)) return undefined;
+
+  const identity = bookIdentity({ title, authors, ...(isbn === undefined ? {} : { isbn }) });
+  return {
+    id: generatedId(identity), title, authors, ...(isbn === undefined ? {} : { isbn }), role, sharedTopics,
+    rationale, sources: [], evidence: 'candidate', origin: 'generated',
+  };
+};
+
 const promptFor = (profile: BookProfile, pages: readonly PublicEvidencePage[]): string =>
   JSON.stringify({ profile, evidencePages: pages });
 
-const SYSTEM = 'Identify related books using only the supplied book profile and public evidence pages. Every candidate must cite one or more supplied source URLs. Do not invent sources, metadata, or relationships. Return JSON only.';
+const SYSTEM_EVIDENCE = 'Identify related books using only the supplied book profile and public evidence pages. Every candidate must cite one or more supplied source URLs. Do not invent sources, metadata, or relationships. Return JSON only.';
+
+const SYSTEM_KNOWLEDGE = 'Identify related books for the supplied book profile from your own knowledge of published non-fiction. Prefer well-known works a reader could actually find. Do not invent ISBNs or publishers. Every candidate must explain, in the rationale, why it holds the stated relationship to the profile book. Return JSON only.';
+
+interface DiscoverySchema {
+  readonly required: readonly string[];
+}
 
 /** Discovers externally verifiable candidates from public evidence, never local chapter notes. */
 export async function discoverRelations(
   profile: BookProfile,
-  evidencePages: readonly PublicEvidencePage[],
+  evidencePages: readonly PublicEvidencePage[] | undefined,
   provider: LlmProvider,
   signal?: AbortSignal,
 ): Promise<readonly RelatedBook[]> {
-  const pages = evidencePages.slice(0, MAX_PAGES).map(cleanPage)
+  const pages = (evidencePages ?? []).slice(0, MAX_PAGES).map(cleanPage)
     .filter((page): page is PublicEvidencePage => page !== undefined);
   const sourcesByUrl = sourceMap(pages);
-  if (pages.length === 0) return [];
+  const fromEvidence = pages.length > 0;
 
   const raw = await provider.complete({
-    label: 'universe', system: SYSTEM, prompt: promptFor(profile, pages), schema: SCHEMA, signal,
+    label: 'universe',
+    system: fromEvidence ? SYSTEM_EVIDENCE : SYSTEM_KNOWLEDGE,
+    prompt: fromEvidence ? promptFor(profile, pages) : JSON.stringify({ profile }),
+    schema: SCHEMA, signal,
   });
   const parsed = parseJsonOutput<RawResponse>(raw);
   if (typeof parsed !== 'object' || parsed === null || !Array.isArray(parsed.books)) {
@@ -182,7 +217,9 @@ export async function discoverRelations(
   const ids = new Set<string>();
   const books: RelatedBook[] = [];
   for (const rawBook of parsed.books) {
-    const book = normalizeBook(rawBook, sourcesByUrl);
+    const book = fromEvidence
+      ? normalizeBook(rawBook, sourcesByUrl)
+      : normalizeKnowledgeBook(rawBook);
     if (book === undefined) continue;
     const identity = bookIdentity(book);
     if (identities.has(identity) || ids.has(book.id)) continue;

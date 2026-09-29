@@ -29,8 +29,6 @@ export type ErrorCode =
   | 'node_failed' | 'generation_stopped' | 'unknown_node' | 'cancelled'
   // The desktop shell
   | 'book_not_listed' | 'delete_failed' | 'main_silent' | 'bundle_failed'
-  | 'tavily_key_missing' | 'tavily_failed'
-  | 'brave_key_missing' | 'brave_failed' | 'firecrawl_failed'
   | 'weread_failed'
   // The exports folder
   | 'export_failed' | 'ffmpeg_missing' | 'no_audio'
