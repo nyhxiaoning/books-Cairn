@@ -7,6 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 # Cairn
+[dev快速启动整理:跳转到目录内容](#安装依赖并启动)
+
 
 ![Cairn](./docs/images/screenshot.jpg)
 
@@ -65,21 +67,80 @@ key 一栏可以直接填 key，也可以填 `$变量名` 读取环境变量。�
 生成一本书要调用模型上百次，每次都需要格式正确的结构化结果，所以只靠模型自觉守格式的不提供。
 xAI、Moonshot 和 MiniMax 暂时不在列表里。新模型排在前面。
 
-## 从源码构建
+## 从源码安装和启动:dev开发环境测试
+[dev快速启动整理:跳转到目录内容](#安装依赖并启动)
 
-需要 [Bun](https://bun.sh) 1.3 或更高版本。
+
+### 项目结构
+
+这是一个 Bun workspaces 单仓库：
+
+- `apps/desktop`：唯一的桌面应用，Electrobun 负责桌面外壳，Vite 构建界面。
+- `packages/core`：书籍解析、生成流水线、存储和领域逻辑。
+- `packages/ui`：React 界面、播放器和共享组件。
+- `scripts`：添加书籍、重放模型调用、运行评估和 TypeScript 检查的命令行入口。
+- `docs`：产品需求、架构、设计和评估说明。
+
+### 安装 Bun
+
+需要 [Bun](https://bun.sh) 1.3 或更高版本。macOS 可用 Homebrew 安装：
+
+```bash
+brew install oven-sh/bun/bun
+```
+
+或使用 Bun 官方安装脚本：
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
+安装后重开终端，并确认 `bun --version` 显示 1.3 或更高版本。
+
+### 安装依赖并启动
+
+在仓库根目录执行：
 
 ```bash
 git clone https://github.com/jiehaoZ/Cairn.git
 cd Cairn
 bun install
-cd apps/desktop && bunx electrobun prepare   # 每个 checkout 跑一次
 
-bun run start       # 启动应用
-bun run package     # 打包成 .app
+cd apps/desktop
+bun run start
 ```
 
-`bun test` 跑测试，`bun run typecheck` 检查全部四个 TypeScript 项目。其余命令和项目约定见 [`AGENTS.md`](AGENTS.md)。
+`bun run start` 会准备 Electrobun SDK、构建界面并启动桌面应用。首次使用时，在应用的**设置**中选择模型服务商并配置凭据；生成内容还需要可用的网络连接和旁白服务。
+
+开发时也可以只运行 Vite 界面：
+
+```bash
+cd apps/desktop
+bun run dev
+```
+
+`bun run dev` 只启动网页界面，不启动 Electrobun 桌面外壳，也不连接模型；因此不能用它验证完整桌面功能。
+
+### 常用命令
+
+以下根目录命令应在仓库根目录执行：
+
+```bash
+bun test                          # 运行全部测试
+bun run typecheck                 # 检查四个 TypeScript 项目
+bun run add-book <文件路径>       # 从命令行添加书籍
+bun run replay <书籍ID> [文件路径] # 查看或重放模型调用
+bun run eval --judge <模型名>     # 评估生成流水线
+```
+
+以下桌面端命令应在 `apps/desktop` 目录执行：
+
+```bash
+bun run build    # 构建 WebView
+bun run package  # 打包桌面应用
+```
+
+更多项目约定和运行要求见 [`AGENTS.md`](AGENTS.md)。
 
 ## 参与贡献
 
