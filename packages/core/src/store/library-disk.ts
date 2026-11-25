@@ -4,14 +4,15 @@
  * both go through it, so a book made by either is the same book to the player.
  * The file layout itself is `store/library.ts`, which the webview can import.
  */
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import type { Chapter, ChapterNote, NodeDeck, Path } from '../types';
 import {
   audioFile, bookDir, bookFile, type DeckIndex, deckFile, deckIndexFile, isBookId,
-  LIBRARY_INDEX, type LibraryEntry, normalizeEntry,
+  LIBRARY_INDEX, type LibraryEntry, type LibrarySyncFile, normalizeEntry,
 } from './library';
+import { syncContentType } from '../sync/manifest';
 
 export interface Library {
   readonly root: string;
@@ -37,6 +38,15 @@ export interface Library {
   loadNotes(bookId: string): Promise<ChapterNote[]>;
   /** Chapter text stays out of what the player loads; anchored questions read it here. */
   loadChapter(bookId: string, idx: number): Promise<Chapter | undefined>;
+  /** Read only resources that are safe and useful to reproduce the player view. */
+  readSyncFiles(bookId: string): Promise<readonly LibrarySyncFile[]>;
+  /** Replace syncable resources from a staged directory, preserving local-only data. */
+  installSyncFiles(
+    bookId: string,
+    entry: LibraryEntry,
+    files: readonly LibrarySyncFile[],
+    tempRoot: string,
+  ): Promise<LibraryEntry>;
 }
 
 const APP_DIR = 'Cairn';
@@ -203,7 +213,73 @@ export function openLibrary(root: string): Library {
       const chapters = await json<Chapter[]>(bookFile(bookId, 'chapters.json')).catch(() => []);
       return chapters.find((c) => c.idx === idx);
     },
+
+    async readSyncFiles(bookId) {
+      if (!isBookId(bookId)) return [];
+      const dir = dirOf(bookId);
+      const files: LibrarySyncFile[] = [];
+      const visit = async (relativeDir: string): Promise<void> => {
+        const absoluteDir = at(join(bookDir(bookId), relativeDir));
+        const entries = await readdir(absoluteDir, { withFileTypes: true }).catch(() => []);
+        for (const entry of entries) {
+          const relative = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+          if (entry.isDirectory()) {
+            if (relative === 'decks' || relative === 'audio') await visit(relative);
+            continue;
+          }
+          if (!entry.isFile() || syncContentType(relative) === undefined) continue;
+          files.push({ path: relative, bytes: new Uint8Array(await readFile(join(dir, relative))) });
+        }
+      };
+      await visit('');
+      return files.sort((left, right) => left.path.localeCompare(right.path));
+    },
+
+    async installSyncFiles(bookId, entry, files, tempRoot) {
+      if (!isBookId(bookId) || entry.id !== bookId) throw new Error('invalid_sync_book');
+      const currentDir = dirOf(bookId);
+      await mkdir(tempRoot, { recursive: true });
+      const stagingRoot = await mkdtemp(join(tempRoot, 'cairn-sync-'));
+      const stagingDir = join(stagingRoot, bookDir(bookId));
+      const backupDir = `${currentDir}.${process.pid}.${Date.now()}.bak`;
+      let movedCurrent = false;
+      try {
+        if (await pathExists(currentDir)) await cp(currentDir, stagingDir, { recursive: true });
+        await mkdir(stagingDir, { recursive: true });
+        for (const file of files) {
+          const target = join(stagingDir, file.path);
+          await mkdir(join(target, '..'), { recursive: true });
+          await writeFile(target, file.bytes);
+        }
+        await mkdir(join(currentDir, '..'), { recursive: true });
+        if (await pathExists(currentDir)) {
+          await rename(currentDir, backupDir);
+          movedCurrent = true;
+        }
+        await rename(stagingDir, currentDir);
+        forget(bookId);
+        const installed = await upsert(entry);
+        await rm(backupDir, { recursive: true, force: true });
+        return installed;
+      } catch (error) {
+        if (movedCurrent && await pathExists(backupDir)) {
+          await rm(currentDir, { recursive: true, force: true });
+          await rename(backupDir, currentDir);
+          forget(bookId);
+        } else if (!movedCurrent) {
+          await rm(currentDir, { recursive: true, force: true });
+        }
+        throw error;
+      } finally {
+        await rm(stagingRoot, { recursive: true, force: true });
+        await rm(backupDir, { recursive: true, force: true });
+      }
+    },
   };
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  return stat(path).then(() => true, () => false);
 }
 
 async function writeAtomic(file: string, contents: string): Promise<void> {

@@ -96,6 +96,11 @@ export interface DeckIndex {
   readonly complete: boolean;
 }
 
+export interface LibrarySyncFile {
+  readonly path: string;
+  readonly bytes: Uint8Array;
+}
+
 /**
  * Fill in what an older library did not record.
  * A book written before progressive building was finished by definition.
