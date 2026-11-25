@@ -21,6 +21,10 @@ apps/desktop/.hutch/
 apps/desktop/public/books/
 apps/desktop/public/books.json
 
+# Cloudflare Worker local state and development secrets.
+apps/sync-worker/.wrangler/
+apps/sync-worker/.dev.vars
+
 # Secrets. TAVILY_API_KEY lives in the environment, never in a file here.
 .env
 .env.*

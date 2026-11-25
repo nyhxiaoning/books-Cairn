@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "test": "bun test",
+    "sync-worker:test": "bun test apps/sync-worker/tests/health.test.ts",
     "typecheck": "bun scripts/typecheck.ts",
     "add-book": "bun scripts/add-book.ts",
     "replay": "bun scripts/replay.ts",
