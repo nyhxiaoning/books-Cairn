@@ -9,6 +9,8 @@
   "scripts": {
     "test": "bun test",
     "sync-worker:test": "bun test apps/sync-worker/tests/health.test.ts",
+    "sync-worker:preflight": "bun apps/sync-worker/scripts/preflight.ts",
+    "sync-worker:verify": "bun apps/sync-worker/scripts/verify.ts",
     "typecheck": "bun scripts/typecheck.ts",
     "add-book": "bun scripts/add-book.ts",
     "replay": "bun scripts/replay.ts",

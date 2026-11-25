@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "preflight": "bun scripts/preflight.ts",
+    "verify": "bun scripts/verify.ts",
     "test": "bun test tests"
   },
   "devDependencies": {
