@@ -6,13 +6,13 @@ Keep a generated slide deck playable when its narration audio is absent, and mak
 
 ## Scope
 
-The player change is limited to the deck playback path. When a deck exists but its audio URL fails, the deck enters a silent visual-playback mode: the slides, captions, progress, seeking, playback rate, pause/play, and automatic next-station behavior continue using a local clock. Existing audio playback remains the preferred path whenever audio loads.
+The player change is limited to the deck playback path. When a deck exists but its audio URL fails, the deck enters a local real-time reading mode: system `SpeechSynthesis` reads the deck's existing narration text while slides, captions, progress, seeking, playback rate, pause/play, and automatic next-station behavior continue using a local clock. If system speech is unavailable, the same clock keeps the deck playable visually. Existing audio playback remains the preferred path whenever audio loads.
 
 The companion change is limited to chat model selection and error reporting. The companion keeps its own provider/model choice, independent of the generation model. The existing provider credentials remain shared by provider, while the selected chat model is stored separately. Source validation remains strict; only the internal failure reason and user-facing explanation become clearer.
 
 ## Design
 
-`DeckPane` owns whether the current station has usable audio and chooses either the media element clock or a monotonic visual clock. The visual clock advances only while playing, clamps at the deck duration, emits the same progress callbacks, and invokes the existing `onEnded` path once. `useTransport` is extended only as needed to control a playback clock abstraction, preserving its keyboard and rate behavior.
+`DeckPane` owns whether the current station has usable audio and chooses either the media element clock or a monotonic visual clock. The visual clock advances only while playing, clamps at the deck duration, emits the same progress callbacks, and invokes the existing `onEnded` path once. Local speech is cancelled and restarted on pause, seek, rate, and station changes. `useTransport` is extended only as needed to control a playback clock abstraction, preserving its keyboard and rate behavior.
 
 The companion model settings expose an independent model input for the selected chat provider, alongside the existing provider selector. For catalog providers it offers the known model list plus a custom model field where appropriate; `inherit` continues to mean the generation model. Settings persistence and `resolveChatModel` already have separate chat-provider concepts, so the change must preserve that boundary and add only the missing model selection UI/state wiring.
 

@@ -114,7 +114,7 @@ git add packages/ui/src/settings/ModelsPage.tsx packages/ui/src/settings/shell.t
 git commit -m "feat: configure the companion model independently"
 ```
 
-### Task 3: Add silent visual playback when audio is missing
+### Task 3: Add local real-time reading when audio is missing
 
 **Files:**
 - Modify: `packages/ui/src/panes/DeckPane.tsx`
@@ -124,7 +124,7 @@ git commit -m "feat: configure the companion model independently"
 
 **Interfaces:**
 - Consumes: `NodeDeck.durationMs`, existing `onProgress`, `onEnded`, transport controls, and deck rendering.
-- Produces: a deck that advances from 0 to `durationMs` without a media file, with the same pause/play/seek/rate/auto-next behavior.
+- Produces: a deck that reads its narration through system `SpeechSynthesis` and advances from 0 to `durationMs` without a media file, with the same pause/play/seek/rate/auto-next behavior; visual-only playback remains the last fallback.
 
 - [ ] **Step 1: Add a failing virtual-clock test**
 
@@ -140,9 +140,9 @@ bun test packages/ui/tests/panes/DeckPane.test.tsx packages/ui/tests/transport.t
 
 Expected: the new missing-audio test fails before the fallback exists.
 
-- [ ] **Step 3: Implement the visual clock**
+- [ ] **Step 3: Implement the visual clock and local speech fallback**
 
-Track audio availability from the media element's load/error events. On error, switch to a monotonic `requestAnimationFrame` clock that uses elapsed wall time multiplied by the selected rate. Keep the existing media path untouched when audio loads. Clamp the clock to `deck.durationMs`, call `onProgress`, and route the terminal transition through the existing `onEnded` callback exactly once.
+Track audio availability from the media element's load/error events. On error, switch to a monotonic `requestAnimationFrame` clock that uses elapsed wall time multiplied by the selected rate, and speak the active narration cue with system `SpeechSynthesis`. Keep the existing media path untouched when audio loads. Clamp the clock to `deck.durationMs`, call `onProgress`, cancel speech on pause/seek/rate/station changes, and route the terminal transition through the existing `onEnded` callback exactly once. If speech synthesis is unavailable, keep the clock and label the mode as visual-only.
 
 - [ ] **Step 4: Wire controls and copy**
 
@@ -194,7 +194,7 @@ Expected: production WebView bundle succeeds.
 
 - [ ] **Step 4: Verify the real Electrobun shell**
 
-Use a temporary `CAIRN_DATA_DIR` or a fixture book with an existing deck and deliberately absent audio file. Confirm the slide remains visible, play advances it silently, pause/seek/rate work, and the next-station path still fires. Open the right-side companion settings/model control and confirm it does not alter generation settings. Trigger or replay a citation failure and confirm the localized diagnostic message appears.
+Use a temporary `CAIRN_DATA_DIR` or a fixture book with an existing deck and deliberately absent audio file. Confirm the slide remains visible, play reads the narration locally when system speech is available, pause/seek/rate work, and the next-station path still fires. Open the right-side companion model control and confirm it does not alter generation settings. Trigger or replay a citation failure and confirm the localized diagnostic message appears.
 
 - [ ] **Step 5: Final diff and instrumentation cleanup**
 
