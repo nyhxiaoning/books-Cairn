@@ -1,7 +1,10 @@
+import { handleAuthRequest } from './auth/routes';
+
 export interface Env {
   readonly DB: D1Database;
   readonly BOOKS: R2Bucket;
   readonly SESSION_SECRET: string;
+  readonly ADMIN_INIT_SECRET?: string;
 }
 
 const jsonHeaders = { 'content-type': 'application/json; charset=utf-8' };
@@ -12,6 +15,10 @@ const json = (body: unknown, status = 200): Response =>
 export const app = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname.startsWith('/api/auth/')) {
+      return handleAuthRequest(request, env);
+    }
 
     if (request.method === 'GET' && url.pathname === '/api/health') {
       if (!env.DB || !env.BOOKS) {
