@@ -204,7 +204,7 @@ export function createSyncService(deps: SyncServiceDeps) {
       const session: SessionInfo = await configuredClient().login({ username, password });
       await deps.writeSyncSettings?.({ username });
       account = { authenticated: true, expiresAt: session.expiresAt };
-      await syncNow();
+      void syncNow().catch((cause) => console.error('background sync after login failed', cause));
       return account;
     },
     async logout(): Promise<void> {

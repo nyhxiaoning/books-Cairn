@@ -20,6 +20,7 @@ import {
   suggestCatalogFor, patchCatalog, wereadStart,
   universeBuild, universeGet, universePatch,
   exportAudio, exportSlides,
+  syncNow,
 } from './bridge';
 import { shortcuts } from './shortcut';
 import { loadBundle, useBundle } from './useBundle';
@@ -78,6 +79,7 @@ export function App(): ReactElement {
         getCatalog().catch(() => emptyCatalog()),
       ]);
       setBooks(shelf);
+      if (inShell) void syncNow().catch((cause) => console.error('startup sync failed', cause));
       setCatalog(organization);
       // Reopen whatever was being read, if it is still on the shelf. A path is
       // walked over several sittings; landing on the drop zone every launch
@@ -103,6 +105,7 @@ export function App(): ReactElement {
     setBooks((list) => list.map(
       (b) => (b.id === s.bookId ? { ...b, built: s.ready, complete: s.complete } : b),
     ));
+    if (inShell) void syncNow().catch((cause) => console.error('deck sync failed', cause));
   }), []);
 
   useEffect(() => {
