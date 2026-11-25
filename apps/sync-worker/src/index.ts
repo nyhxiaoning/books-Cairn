@@ -1,4 +1,5 @@
 import { handleAuthRequest } from './auth/routes';
+import { handleSyncRequest } from './sync/routes';
 
 export interface Env {
   readonly DB: D1Database;
@@ -18,6 +19,10 @@ export const app = {
 
     if (url.pathname.startsWith('/api/auth/')) {
       return handleAuthRequest(request, env);
+    }
+
+    if (url.pathname.startsWith('/api/sync/')) {
+      return handleSyncRequest(request, env);
     }
 
     if (request.method === 'GET' && url.pathname === '/api/health') {
