@@ -78,6 +78,8 @@ const makeEnvironment = async () => {
   } as unknown as D1Database;
 
   const objects = new Map<string, Uint8Array>();
+  const listCalls: Array<string | undefined> = [];
+  const deletedKeys: string[] = [];
   const bucket = {
     async put(key: string, body: ArrayBuffer) { objects.set(key, new Uint8Array(body)); },
     async get(key: string) {
@@ -85,6 +87,13 @@ const makeEnvironment = async () => {
       if (!bytes) return null;
       return { body: new Response(bytes.buffer as ArrayBuffer).body!, size: bytes.byteLength, etag: 'etag', httpMetadata: { contentType: 'audio/mpeg' } };
     },
+    async list(options: { cursor?: string }) {
+      listCalls.push(options.cursor);
+      return options.cursor === undefined
+        ? { objects: [{ key: 'admins/admin-1/books/book-123/one' }], truncated: true, cursor: 'page-2' }
+        : { objects: [{ key: 'admins/admin-1/books/book-123/two' }], truncated: false };
+    },
+    async delete(key: string) { deletedKeys.push(key); },
   } as unknown as R2Bucket;
   const env: Env = { DB: database, BOOKS: bucket, SESSION_SECRET: 'test-secret' };
   const session = await createSession(database, 'admin-1', new Date());
@@ -94,7 +103,7 @@ const makeEnvironment = async () => {
     budget_id: 'gist', language: 'en', voice: 'voice', generated_at: '2026-01-01T00:00:00.000Z', version: 1,
     deleted_at: null,
   });
-  return { env, cookie: `cairn_session=${session.token}`, otherCookie: `cairn_session=${otherSession.token}`, resources };
+  return { env, cookie: `cairn_session=${session.token}`, otherCookie: `cairn_session=${otherSession.token}`, resources, listCalls, deletedKeys };
 };
 
 test('authenticated manifest read returns owned books and resources', async () => {
@@ -109,7 +118,7 @@ test('resource put stores R2 bytes and D1 hash metadata, then get returns bytes'
   const bytes = new TextEncoder().encode('audio');
   const hash = await sha256(bytes.buffer);
   const response = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/audio/n0.mp3', {
-    method: 'PUT', headers: { cookie, 'content-type': 'audio/mpeg', 'content-length': String(bytes.byteLength), 'x-content-sha256': hash }, body: bytes.buffer as ArrayBuffer,
+    method: 'PUT', headers: { cookie, 'content-type': 'audio/mpeg', 'content-length': String(bytes.byteLength), 'x-content-sha256': hash, 'x-base-version': '1' }, body: bytes.buffer as ArrayBuffer,
   }), env);
   expect(response.status).toBe(200);
   expect(resources.get('book-123/audio/n0.mp3')?.content_hash).toBe(hash);
@@ -135,4 +144,29 @@ test('rejects unauthenticated, private/traversal, wrong content type, and hash m
   });
   expect((await app.fetch(request('text/plain', 'bad'), env)).status).toBe(415);
   expect((await app.fetch(request('application/json', 'bad'), env)).status).toBe(400);
+
+  const bytes = new TextEncoder().encode('{}');
+  const hash = await sha256(bytes.buffer);
+  const resourceRequest = (baseVersion?: string) => new Request('https://cairn.test/api/sync/books/book-123/resource/path.json', {
+    method: 'PUT', headers: {
+      cookie, 'content-type': 'application/json', 'content-length': String(bytes.byteLength), 'x-content-sha256': hash,
+      ...(baseVersion === undefined ? {} : { 'x-base-version': baseVersion }),
+    }, body: bytes.buffer as ArrayBuffer,
+  });
+  expect((await app.fetch(resourceRequest(), env)).status).toBe(409);
+  expect((await app.fetch(resourceRequest('not-a-version'), env)).status).toBe(409);
+  expect((await app.fetch(resourceRequest('2'), env)).status).toBe(409);
+});
+
+test('tombstone cleanup follows every R2 list page', async () => {
+  const { env, cookie, listCalls, deletedKeys } = await makeEnvironment();
+  const response = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123', {
+    method: 'DELETE', headers: { cookie, 'x-base-version': '1' },
+  }), env);
+  expect(response.status).toBe(200);
+  expect(listCalls).toEqual([undefined, 'page-2']);
+  expect(deletedKeys).toEqual([
+    'admins/admin-1/books/book-123/one',
+    'admins/admin-1/books/book-123/two',
+  ]);
 });
