@@ -200,9 +200,13 @@ body {
   border: 1px solid var(--line); border-radius: 8px;
 }
 .shelf-search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.shelf-categories { display: flex; flex-wrap: wrap; gap: 6px; }
+.shelf-categories {
+  display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none;
+}
+.shelf-categories::-webkit-scrollbar { display: none; }
 .shelf-category {
   font: inherit; font-size: calc(12px * var(--text-scale, 1)); cursor: pointer;
+  flex: 0 0 auto; white-space: nowrap;
   padding: 4px 9px; color: var(--dim); background: var(--chrome);
   border: 1px solid var(--line); border-radius: 999px;
 }
@@ -215,7 +219,7 @@ body {
 .shelf-item:hover { border-color: var(--accent); }
 .shelf-name { font-size: calc(14px * var(--text-scale, 1)); font-weight: 600; }
 .shelf-meta { font-size: calc(12px * var(--text-scale, 1)); color: var(--dim); }
-.shelf-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.shelf-text { display: flex; flex: 1 1 auto; flex-direction: column; gap: 4px; min-width: 0; }
 .shelf-item:has(.shelf-cover) { flex-direction: row; align-items: center; gap: 12px; }
 .shelf-cover {
   flex: 0 0 auto; width: 40px; height: 58px; object-fit: cover;
@@ -231,12 +235,6 @@ body {
 .shelf-row .shelf-item { flex: 1; min-width: 0; }
 .shelf-row .shelf-name, .shelf-row .shelf-meta {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* The slide must escape the row's ellipsis clipping, so the name itself
-   carries the hover animation on the shelf. */
-.shelf-row .shelf-name:hover {
-  overflow: visible; text-overflow: clip;
-  animation: name-scroll 7s linear 1 both;
 }
 /* Quiet until the row is under the pointer: a delete button competing with the
    book's own name is a delete button that gets pressed by accident. */
