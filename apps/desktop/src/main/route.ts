@@ -23,8 +23,9 @@ type Env = Readonly<Record<string, string | undefined>>;
 
 export function routeFor(
   settings: ShellSettingsValues, id: ProviderId, env: Env, codex: CodexCredentials | undefined,
+  modelOverride?: string,
 ): Route | undefined {
-  const model = modelOf(settings, id);
+  const model = modelOverride?.trim() || modelOf(settings, id);
   if (id === 'openai-codex') {
     return codex ? { id, model, apiKey: codex.apiKey, baseUrl: '', codex } : undefined;
   }

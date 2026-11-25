@@ -7,6 +7,7 @@ import { Markdown, markCitations } from './markdown';
 export function CompanionPane({
   messages, pending, draftAnswer, error, errorCode, selection, collapsed = false,
   onAsk, onCancel, onClearSelection, onJumpToChapter, onOpenShelf, onOpenExpert,
+  modelValue, modelChoices, modelDisabled = false, onModelChange,
 }: {
   messages: readonly ChatMessage[];
   pending: boolean;
@@ -22,6 +23,10 @@ export function CompanionPane({
   onOpenShelf: (bookId: string, nodeId: string) => void;
   /** Open a linked expert book; absent when the shelf is unreachable. */
   onOpenExpert?: (bookId: string) => void;
+  modelValue?: string;
+  modelChoices?: readonly { readonly value: string; readonly label: string }[];
+  modelDisabled?: boolean;
+  onModelChange?: (value: string) => void;
 }): ReactElement {
   const t = useT();
   const [draft, setDraft] = useState('');
@@ -76,6 +81,12 @@ export function CompanionPane({
       <button type="button" onClick={onCancel}>{t.companion.stop}</button>
     </div>}
     {selection && <div className="sel-pending"><blockquote className="sel">{selection}</blockquote><button type="button" className="sel-drop" onClick={onClearSelection} aria-label={t.ask.dropQuote}>×</button></div>}
+    {modelChoices && onModelChange && <label className="companion-model">
+      <span>{t.companion.model}</span>
+      <select value={modelValue ?? ''} disabled={modelDisabled} onChange={(event) => onModelChange(event.target.value)}>
+        {modelChoices.map((choice) => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
+      </select>
+    </label>}
     <form className="composer" onSubmit={(event) => { event.preventDefault(); const question = draft.trim(); if (question && !pending) { onAsk(question); setDraft(''); } }}>
       <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={t.companion.placeholder} />
       <button type="submit" disabled={!draft.trim() || pending}>{t.companion.send}</button>

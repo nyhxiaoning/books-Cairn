@@ -25,7 +25,7 @@ describe('citationMarkers', () => {
   });
 
   test('never passes a marker through as text', () => {
-    expect(() => citationMarkers('Claim (cite:book-1:0)', evidence)).toThrow(CompanionRunError);
+    expect(() => citationMarkers('Claim (cite:book-1:0)', evidence)).toThrow('bad_citation_marker');
   });
 
   test('a streaming draft shows no marker, whole or half-written', () => {
@@ -35,8 +35,8 @@ describe('citationMarkers', () => {
   });
 
   test('does not accept an invented result or reference', () => {
-    expect(() => citationMarkers('Claim [[cite:fake:0]]', evidence)).toThrow(CompanionRunError);
-    expect(() => citationMarkers('Claim [[cite:book-1:1]]', evidence)).toThrow(CompanionRunError);
+    expect(() => citationMarkers('Claim [[cite:fake:0]]', evidence)).toThrow('bad_citation_reference');
+    expect(() => citationMarkers('Claim [[cite:book-1:1]]', evidence)).toThrow('bad_citation_reference');
   });
 
   test('attaches a marker placed after sentence punctuation', () => {
@@ -61,15 +61,15 @@ describe('verifyBookQuotes', () => {
 
   test('rejects fabricated quotes and note-only citations', () => {
     const answer = citationMarkers('It says “Made up.” [[cite:book-1:0]]', evidence);
-    expect(() => verifyBookQuotes(answer.text, answer.citations, chapters)).toThrow(CompanionRunError);
-    expect(() => verifyBookQuotes(answer.text, answer.citations, new Map())).toThrow(CompanionRunError);
+    expect(() => verifyBookQuotes(answer.text, answer.citations, chapters)).toThrow('bad_citation_quote');
+    expect(() => verifyBookQuotes(answer.text, answer.citations, new Map())).toThrow('bad_citation_quote');
   });
 
   test('only accepts the exact excerpt sent to the model, not unseen chapter text', () => {
     const fetched = chapterExcerpts('<tool_result><chapter idx="2" title="Second" truncated="true">A &amp; B</chapter></tool_result>');
     expect(fetched.get(2)).toBe('A & B');
     const answer = citationMarkers('It says “unseen sentence” [[cite:book-1:0]]', evidence);
-    expect(() => verifyBookQuotes(answer.text, answer.citations, new Map([['book-1', fetched]]))).toThrow(CompanionRunError);
+    expect(() => verifyBookQuotes(answer.text, answer.citations, new Map([['book-1', fetched]]))).toThrow('bad_citation_quote');
   });
 
   // The prompt no longer asks for markers, so an uncited quote is the normal case
@@ -78,7 +78,7 @@ describe('verifyBookQuotes', () => {
   });
 
   test('rejects an uncited quotation attributed to the book that no fetched chapter contains', () => {
-    expect(() => verifyBookQuotes('The book says “A fabricated sentence.”', [], chapters)).toThrow(CompanionRunError);
+    expect(() => verifyBookQuotes('The book says “A fabricated sentence.”', [], chapters)).toThrow('bad_citation_quote');
     expect(() => verifyBookQuotes('A term like “agent loop” is useful.', [], chapters)).not.toThrow();
     expect(() => verifyBookQuotes('The book is complex. A term like “agent loop” is useful.', [], chapters)).not.toThrow();
   });
@@ -100,7 +100,7 @@ describe('expert quote ownership', () => {
   test('rejects an expert quote absent from that book\'s fetched chapter', () => {
     const answer = citationMarkers('A argues “Invented words never appeared.” [[cite:expert-result:0]]', expertEvidence);
     expect(() => verifyBookQuotes(answer.text, answer.citations, fetched,
-      new Map([['expert-result', 'book-a']]))).toThrow(CompanionRunError);
+      new Map([['expert-result', 'book-a']]))).toThrow('bad_citation_quote');
   });
 });
 

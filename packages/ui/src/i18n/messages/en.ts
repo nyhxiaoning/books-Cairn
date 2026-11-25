@@ -93,6 +93,8 @@ export const en = {
     pending: 'This chapter is still being built — one moment',
     failed: 'This chapter could not be built',
     retry: 'Try again',
+    localReading: 'Reading aloud locally',
+    visualOnly: 'Visual playback only',
     mute: 'Mute',
     unmute: 'Unmute',
     volume: 'Volume',
@@ -115,6 +117,7 @@ export const en = {
 
   companion: {
     placeholder: 'Ask about this book or anything else…',
+    model: 'Model',
     send: 'Send',
     thinking: 'Thinking…',
     stop: 'Stop',
@@ -126,7 +129,9 @@ export const en = {
     error: (code: string) => ({
       no_credential: 'Set up a model in Settings to use the companion.',
       model_unavailable: 'The selected chat model is unavailable.',
-      bad_citation: 'The answer could not be verified against its sources. Please try again.',
+      bad_citation_marker: 'The answer contained a citation format the companion could not read. Please try again.',
+      bad_citation_reference: 'The answer pointed to a source that was not returned for this question. Please try again.',
+      bad_citation_quote: 'A quoted passage could not be matched to the text returned for this question. Please try again.',
       aborted: 'Answer stopped.',
       tool_limit: 'The answer needed too many tool calls. Try a narrower question.',
       busy: 'Another answer is still running.',
@@ -341,6 +346,9 @@ export const en = {
       chatSource: 'Companion model',
       chatHint: 'Only affects conversations. Station generation keeps the model above.',
       chatInherit: 'Use the generation model',
+      chatModel: 'Chat model',
+      chatModelHint: 'Only this companion uses the selected model.',
+      chatModelCustom: 'The model id this chat endpoint expects.',
     },
     playback: {
       autoNext: 'Play the next chapter automatically',

@@ -750,6 +750,14 @@ body {
 .cites a { color: var(--dim); }
 
 .composer { display: flex; gap: 7px; padding: 12px 14px; border-top: 1px solid var(--line); }
+.companion-model {
+  display: flex; align-items: center; gap: 8px; padding: 0 14px 8px;
+  color: var(--dim); font-size: calc(11px * var(--text-scale, 1));
+}
+.companion-model select {
+  min-width: 0; flex: 1; font: inherit; color: var(--ink); background: var(--card);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px;
+}
 .composer input {
   flex: 1; font: inherit; font-size: calc(13px * var(--text-scale, 1)); padding: 8px 11px;
   border: 1px solid var(--line); border-radius: 7px; background: var(--card); color: var(--ink);

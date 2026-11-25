@@ -23,6 +23,7 @@ describe('parseSettings', () => {
       providers: { openai: { apiKey: 'sk-x', baseUrl: 'https://example.test/v1', model: 'gpt-5.4-mini' } },
       generationProvider: 'openai',
       chatProvider: 'inherit',
+      chatModel: '',
       narration: 'en',
       voices: { en: 'en-US-AvaNeural', zh: 'zh-CN-XiaoxiaoNeural' },
       wereadKey: 'wrk-x',
@@ -54,6 +55,7 @@ describe('parseSettings', () => {
     expect(parsed.providers.openai?.apiKey).toBe('openai-key');
     expect(parsed.providers.anthropic?.apiKey).toBe('anthropic-key');
     expect(parsed.chatProvider).toBe('anthropic');
+    expect(parsed.chatModel).toBe('');
   });
 
   test('a providers block that is not an object falls back whole', () => {

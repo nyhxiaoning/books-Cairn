@@ -28,7 +28,7 @@ export async function resolveChatModel(
   const codex = await (inputs.codex ?? codexCredentials)();
   const route = settings.chatProvider === 'inherit'
     ? resolveRoute(settings, env, codex)
-    : routeFor(settings, settings.chatProvider, env, codex);
+    : routeFor(settings, settings.chatProvider, env, codex, settings.chatModel);
   if (!route) throw new ChatModelError('no_credential');
 
   const built = piRegistry(route.id, route.model, route.baseUrl || undefined, route.codex);

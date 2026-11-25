@@ -66,6 +66,8 @@ export interface ShellPrefs {
   readonly generationProvider: ProviderId;
   /** `inherit` puts the companion on whatever generation uses. */
   readonly chatProvider: ProviderId | 'inherit';
+  /** Empty means the selected chat provider's default model. */
+  readonly chatModel: string;
   readonly narration: NarrationLanguage;
   /** Voice id per language, e.g. `en-US-AndrewNeural`. */
   readonly voices: Readonly<Record<Locale, string>>;

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Agent, type AgentTool } from '@earendil-works/pi-agent-core';
 import { Type, isContextOverflow, type AssistantMessage } from '@earendil-works/pi-ai';
-import { validateCitations } from '@cairn/core/companion/citations';
+import { CitationError, validateCitations } from '@cairn/core/companion/citations';
 import { compactContext, shouldCompact, type CompactionState } from '@cairn/core/companion/compact';
 import { buildContext, estimateTokens } from '@cairn/core/companion/context';
 import type { ChatMessage, ChatSession, Citation, EvidenceRecord } from '@cairn/core/companion/types';
@@ -34,7 +34,8 @@ const PARTIAL_MARKER = /\s*\[\[?(?:c(?:i(?:t(?:e(?::[a-zA-Z0-9-]*(?::\d*)?)?)?)?
 
 export class CompanionRunError extends Error {
   constructor(
-    readonly code: 'invalid_input' | 'unknown_node' | 'bad_citation' | 'model_failed' | 'aborted' | 'tool_limit',
+    readonly code: 'invalid_input' | 'unknown_node' | 'bad_citation_marker' | 'bad_citation_reference'
+      | 'bad_citation_quote' | 'model_failed' | 'aborted' | 'tool_limit',
     detail?: string,
   ) {
     super(detail ? `${code}: ${detail}` : code);
@@ -74,20 +75,25 @@ export function citationMarkers(
     const resultId = match[1];
     const refIndex = Number(match[2]);
     if (index === undefined || !resultId || !Number.isSafeInteger(refIndex)) {
-      throw new CompanionRunError('bad_citation');
+      throw new CompanionRunError('bad_citation_marker');
     }
     text += raw.slice(cursor, index);
     const record = evidence.find((item) => item.resultId === resultId);
     const ref = record?.refs[refIndex];
-    if (!record || !ref) throw new CompanionRunError('bad_citation');
+    if (!record || !ref) throw new CompanionRunError('bad_citation_reference');
     const start = citedSentenceStart(text);
-    if (start >= text.length) throw new CompanionRunError('bad_citation');
+    if (start >= text.length) throw new CompanionRunError('bad_citation_marker');
     citations.push({ span: [start, text.length], source: record.source, resultId, ref });
     cursor = index + match[0].length;
   }
   text += raw.slice(cursor);
-  if (LEFTOVER.test(text)) throw new CompanionRunError('bad_citation');
-  return { text, citations: validateCitations(text, citations, evidence) };
+  if (LEFTOVER.test(text)) throw new CompanionRunError('bad_citation_marker');
+  try {
+    return { text, citations: validateCitations(text, citations, evidence) };
+  } catch (cause) {
+    if (cause instanceof CitationError) throw new CompanionRunError('bad_citation_reference', cause.message);
+    throw cause;
+  }
 }
 
 export function visibleDraft(draft: string): string {
@@ -111,7 +117,7 @@ export function verifyBookQuotes(
       if (quotes.length === 0) continue;
       const chapter = 'chapter' in citation.ref ? citation.ref.chapter : undefined;
       const original = chapter === undefined ? undefined : fetched.get(citation.resultId)?.get(chapter);
-      if (!original || quotes.some((quote) => !original.includes(quote))) throw new CompanionRunError('bad_citation');
+      if (!original || quotes.some((quote) => !original.includes(quote))) throw new CompanionRunError('bad_citation_quote');
     }
     if (citation.source !== 'book') continue;
     const claim = text.slice(...citation.span);
@@ -120,7 +126,7 @@ export function verifyBookQuotes(
     if (quotes.length === 0) continue;
     const chapter = 'chapter' in citation.ref ? citation.ref.chapter : undefined;
     const original = chapter === undefined ? undefined : fetched.get(citation.resultId)?.get(chapter);
-    if (!original || quotes.some((quote) => !original.includes(quote))) throw new CompanionRunError('bad_citation');
+    if (!original || quotes.some((quote) => !original.includes(quote))) throw new CompanionRunError('bad_citation_quote');
   }
   for (const match of text.matchAll(quotePattern)) {
     if (match.index === undefined) continue;
@@ -133,7 +139,7 @@ export function verifyBookQuotes(
       && citation.span[0] <= match.index && citation.span[1] >= match.index + match[0].length);
     const quote = match[1] ?? match[2] ?? match[3] ?? match[4] ?? '';
     const found = [...fetched.values()].some((chapters) => [...chapters.values()].some((text) => text.includes(quote)));
-    if (!covered && !found) throw new CompanionRunError('bad_citation');
+    if (!covered && !found) throw new CompanionRunError('bad_citation_quote');
   }
 }
 

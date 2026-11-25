@@ -132,6 +132,8 @@ export interface ShellSettingsValues {
   readonly providers: ProviderProfiles;
   readonly generationProvider: ProviderId;
   readonly chatProvider: ChatProvider;
+  /** Empty means the selected chat provider's default model. */
+  readonly chatModel: string;
   readonly narration: NarrationLanguage;
   readonly voices: Readonly<Record<ContentLocale, string>>;
   /** Each is a key, a `$NAME` reference, or empty for none. See `resolveSecret`. */
@@ -152,6 +154,7 @@ export const DEFAULT_SHELL_SETTINGS: ShellSettingsValues = {
   providers: {},
   generationProvider: 'openai',
   chatProvider: 'inherit',
+  chatModel: '',
   narration: 'follow',
   // From `pipeline/voice.ts`, not a second copy: the terminal path has no
   // settings file and falls back to those, and two lists would drift.
@@ -228,6 +231,7 @@ function migrate(raw: Record<string, unknown>): Partial<ShellSettingsValues> {
   }
 
   let chatProvider: ChatProvider | undefined;
+  let chatModel: string | undefined;
   if (chat && isProviderId(chat.source)) {
     const id = chat.source;
     providers[id] = {
@@ -238,6 +242,7 @@ function migrate(raw: Record<string, unknown>): Partial<ShellSettingsValues> {
       ...(providers[id]?.baseUrl ? { baseUrl: providers[id]!.baseUrl } : {}),
     };
     chatProvider = id;
+    chatModel = str(chat.model);
   } else if (chat?.source === 'inherit') {
     chatProvider = 'inherit';
   }
@@ -246,6 +251,7 @@ function migrate(raw: Record<string, unknown>): Partial<ShellSettingsValues> {
     ...(Object.keys(providers).length > 0 ? { providers } : {}),
     ...(generationProvider ? { generationProvider } : {}),
     ...(chatProvider ? { chatProvider } : {}),
+    ...(chatModel !== undefined ? { chatModel } : {}),
   };
 }
 
@@ -276,6 +282,9 @@ export function parseSettings(
     chatProvider: raw.chatProvider === 'inherit' || isProviderId(raw.chatProvider)
       ? raw.chatProvider
       : old.chatProvider ?? fallback.chatProvider,
+    chatModel: typeof raw.chatModel === 'string'
+      ? raw.chatModel
+      : old.chatModel ?? fallback.chatModel,
     narration: narration === 'follow' || narration === 'en' || narration === 'zh'
       ? narration
       : fallback.narration,

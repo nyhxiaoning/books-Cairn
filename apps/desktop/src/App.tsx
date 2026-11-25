@@ -135,6 +135,16 @@ export function App(): ReactElement {
       : [])), [chat.messages]);
 
   const path = bundle?.path;
+  const companionProviderId = shell?.prefs.chatProvider === 'inherit'
+    ? shell.prefs.generationProvider
+    : shell?.prefs.chatProvider;
+  const companionProvider = shell?.providers.find((provider) => provider.id === companionProviderId);
+  const companionModelChoices = companionProvider ? [
+    { value: '', label: `${companionProvider.label} · ${t.settings.models.modelDefault}` },
+    ...[...companionProvider.models]
+      .sort((a, b) => Number(b.strict) - Number(a.strict))
+      .map((model) => ({ value: model.id, label: model.name })),
+  ] : undefined;
   /** Where the reader stopped in this book, read once per book, before any render. */
   const place = useMemo(
     () => (prefs.resume && path ? resume.placeFor(path.bookId) : undefined),
@@ -501,6 +511,7 @@ export function App(): ReactElement {
             .catch((cause: unknown) => console.error('retryBook', cause)),
         } : {})}
         audioSrc={`${base ?? '.'}/${audioFile(path.bookId, node.id)}`}
+        narrationLocale={books.find((book) => book.id === path.bookId)?.language}
         stageTitle={path.stages.find((st) => st.nodeIds.includes(node.id))?.title}
         resumeAt={place}
         onSelect={setSelection}
@@ -532,6 +543,10 @@ export function App(): ReactElement {
         onOpenShelf={(id, nodeId) => { if (chat.pendingTurn) void chatCancel(chat.pendingTurn); openBook(id); setCurrentId(nodeId); setChat(emptyCompanionView(id)); }}
         selection={selection}
         onClearSelection={() => setSelection(undefined)}
+        modelValue={shell?.prefs.chatModel}
+        modelChoices={companionModelChoices}
+        modelDisabled={shell?.prefs.chatProvider === 'inherit'}
+        onModelChange={(value) => { if (shell && shell.prefs.chatProvider !== 'inherit') shell.setPref('chatModel', value); }}
         collapsed={right.state.collapsed}
       />
 

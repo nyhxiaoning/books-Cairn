@@ -36,6 +36,7 @@ function shellWith(overrides: Partial<ShellSettings['prefs']> = {}): ShellSettin
   return {
     prefs: {
       providers: {}, generationProvider: 'openai', chatProvider: 'inherit',
+      chatModel: '',
       narration: 'follow', voices: { en: 'en-US-AndrewNeural', zh: 'zh-CN-YunjianNeural' },
       searchProvider: 'firecrawl', braveKey: '', firecrawlKey: '', tavilyKey: '', wereadKey: '', trace: false,
       ...overrides,
@@ -76,6 +77,12 @@ describe('ModelsPage', () => {
     const html = render(shellWith());
     for (const provider of PROVIDERS) expect(html).toContain(provider.label);
     expect(html).toContain('gpt-5.4-mini');
+  });
+
+  test('shows a separate model input when a companion provider is selected', () => {
+    const html = render(shellWith({ chatProvider: 'openai' }));
+    expect(html).toContain('Chat model');
+    expect(html).toContain('Only this companion uses the selected model.');
   });
 
   test('a provider with no constrained model is offered like any other', () => {

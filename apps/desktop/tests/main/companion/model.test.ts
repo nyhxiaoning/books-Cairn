@@ -76,6 +76,22 @@ describe('resolveChatModel', () => {
     expect(resolved.model.id).toBe('deepseek-flash');
   });
 
+  test('a chat model override does not change the generation provider profile', async () => {
+    const settings = {
+      ...DEFAULT_SHELL_SETTINGS,
+      generationProvider: 'openai' as const,
+      chatProvider: 'deepseek' as const,
+      chatModel: 'deepseek-v4-pro',
+      providers: {
+        openai: { apiKey: 'generation-secret', baseUrl: '', model: 'gpt-5.4-mini' },
+        deepseek: { apiKey: 'chat-secret', baseUrl: '', model: 'deepseek-flash' },
+      },
+    };
+    const resolved = await resolveChatModel(settings, none);
+    expect(resolved.model.id).toBe('deepseek-v4-pro');
+    expect(settings.providers.openai.model).toBe('gpt-5.4-mini');
+  });
+
   test('a missing Companion key fails before any model request', async () => {
     await expect(resolveChatModel({
       ...DEFAULT_SHELL_SETTINGS,

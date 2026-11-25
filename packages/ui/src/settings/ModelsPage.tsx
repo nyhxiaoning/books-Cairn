@@ -187,6 +187,12 @@ function ProviderDetail({ shell, provider }: {
 function ChatRow({ shell }: { shell: ShellSettings }): ReactElement {
   const { t } = useUi();
   const id = useId();
+  const modelId = useId();
+  const provider = shell.prefs.chatProvider === 'inherit'
+    ? undefined
+    : shell.providers.find((item) => item.id === shell.prefs.chatProvider);
+  const offered = provider ? [...provider.models].sort((a, b) => Number(b.strict) - Number(a.strict)) : [];
+  const chosen = shell.prefs.chatModel;
 
   return (
     <Section title={t.settings.models.chatSource}>
@@ -198,9 +204,34 @@ function ChatRow({ shell }: { shell: ShellSettings }): ReactElement {
             { value: 'inherit', label: t.settings.models.chatInherit },
             ...shell.providers.map((p) => ({ value: p.id, label: p.label })),
           ]}
-          onPick={(value) => shell.setPref('chatProvider', value)}
+          onPick={(value) => {
+            shell.setPref('chatProvider', value);
+            shell.setPref('chatModel', '');
+          }}
         />
       </Row>
+      {provider && (provider.models.length > 0 ? (
+        <Row label={t.settings.models.chatModel} hint={t.settings.models.chatModelHint} htmlFor={modelId}>
+          <Select
+            id={modelId}
+            value={chosen}
+            choices={[
+              { value: '', label: t.settings.models.modelDefault },
+              ...offered.map((model) => ({ value: model.id, label: model.name })),
+            ]}
+            onPick={(value) => shell.setPref('chatModel', value)}
+          />
+        </Row>
+      ) : (
+        <Row label={t.settings.models.chatModel} hint={t.settings.models.chatModelCustom} htmlFor={modelId}>
+          <input
+            id={modelId}
+            className="set-input"
+            value={chosen}
+            onChange={(event) => shell.setPref('chatModel', event.target.value)}
+          />
+        </Row>
+      ))}
     </Section>
   );
 }

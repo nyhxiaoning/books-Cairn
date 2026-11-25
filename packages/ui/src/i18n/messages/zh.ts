@@ -83,6 +83,8 @@ export const zh: Messages = {
     pending: '这一章还在生成，稍等一下',
     failed: '这一章没能生成',
     retry: '重试',
+    localReading: '正在使用本地实时朗读',
+    visualOnly: '仅播放画面',
     mute: '静音',
     unmute: '取消静音',
     volume: '音量',
@@ -105,6 +107,7 @@ export const zh: Messages = {
 
   companion: {
     placeholder: '问这本书，或聊聊别的…',
+    model: '模型',
     send: '发送',
     thinking: '思考中…',
     stop: '停止',
@@ -116,7 +119,9 @@ export const zh: Messages = {
     error: (code: string) => ({
       no_credential: '请先在设置中配置聊天模型。',
       model_unavailable: '当前选择的聊天模型不可用。',
-      bad_citation: '这条回答的来源无法核实，请重试。',
+      bad_citation_marker: '回答中的来源标记无法识别，请重试。',
+      bad_citation_reference: '回答引用了本轮没有返回的来源，请重试。',
+      bad_citation_quote: '回答中的引文无法在本轮取回的原文中找到，请重试。',
       aborted: '已停止回答。',
       tool_limit: '这条问题需要过多工具调用，可以问得更具体一些。',
       busy: '上一条回答还在进行中。',
@@ -329,6 +334,9 @@ export const zh: Messages = {
       chatSource: '对话模型',
       chatHint: '只影响对话。生成站点仍用上面那个模型。',
       chatInherit: '跟随生成模型',
+      chatModel: '对话模型',
+      chatModelHint: '只有右侧伴读使用这个模型。',
+      chatModelCustom: '这个对话接口认的模型 id。',
     },
     playback: {
       autoNext: '播完自动进下一章',
