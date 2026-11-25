@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactElement } from 'react';
 import { toCaptions } from '@cairn/core/pipeline/caption';
 import type { NodeDeck, PathNode } from '@cairn/core/types';
+import type { ContentLocale } from '@cairn/core/types';
 import { SlideView } from '../slides/SlideView';
 import { lastIndexAtOrBefore, LEAD_MS } from '../slides/reveal';
 import { FastMark, FullscreenMark, PauseMark, PlayMark, VolumeMark } from './icons';
@@ -10,6 +11,7 @@ import { useAutoHide } from './useAutoHide';
 import type { Place } from './resume';
 import { startAt } from './resume';
 import { RATES, useTransport } from './useTransport';
+import { VisualClock, type PlaybackClock } from './visual-clock';
 
 /**
  * Centre pane: the deck plays itself while the narration reads.
@@ -20,7 +22,7 @@ import { RATES, useTransport } from './useTransport';
 const CLOCK_MS = 32;
 
 export function DeckPane({
-  node, deck, audioSrc, stageTitle, resumeAt, onSelect, onEnded, onProgress,
+  node, deck, audioSrc, narrationLocale, stageTitle, resumeAt, onSelect, onEnded, onProgress,
   build = 'pending', onRetry,
 }: {
   node: PathNode;
@@ -30,6 +32,7 @@ export function DeckPane({
   /** Offered on a failed station. Absent outside the shell, where nothing can rebuild it. */
   onRetry?: () => Promise<void>;
   audioSrc: string;
+  narrationLocale?: ContentLocale;
   /** The path's own stage, shown in the slide's frame. Absent is fine. */
   stageTitle?: string;
   /**
@@ -46,6 +49,9 @@ export function DeckPane({
 }): ReactElement {
   const { prefs, t } = useUi();
   const audio = useRef<HTMLAudioElement>(null);
+  const playback = useRef<PlaybackClock | null>(null);
+  const visual = useRef<VisualClock | undefined>(undefined);
+  const spoken = useRef<{ cue: number; rate: number } | undefined>(undefined);
   const fit = useRef<HTMLDivElement>(null);
   const [ms, setMs] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -53,6 +59,7 @@ export function DeckPane({
   const [full, setFull] = useState(false);
   const chrome = useAutoHide();
   const [retrying, setRetrying] = useState(false);
+  const [fallback, setFallback] = useState<'speech' | 'visual'>();
 
   // The frame goes fullscreen through its centring wrapper, so the stage keeps
   // its 16:9 and letterboxes instead of stretching to the display's shape.
@@ -67,7 +74,7 @@ export function DeckPane({
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
-  const transport = useTransport(audio, deck !== undefined, toggleFullscreen, prefs.rate);
+  const transport = useTransport(playback, deck !== undefined, toggleFullscreen, prefs.rate);
 
   // Clause-level lines, derived from the sentence cues the deck already carries,
   // so a book generated before captions existed gets them without regenerating.
@@ -76,6 +83,26 @@ export function DeckPane({
   // Read through a ref so a changing resume point cannot re-trigger the effect
   // below: it is consumed once, on the station it belongs to.
   const pending = useRef(resumeAt);
+
+  const activateFallback = useCallback(() => {
+    if (!deck || visual.current) return;
+    const speech = typeof window !== 'undefined' && 'speechSynthesis' in window;
+    const clock = new VisualClock(deck.durationMs / 1000, setPlaying, onEnded);
+    const position = audio.current?.currentTime;
+    if (position !== undefined && Number.isFinite(position)) clock.seek(position);
+    visual.current = clock;
+    playback.current = clock;
+    setFallback(speech ? 'speech' : 'visual');
+    clock.play();
+  }, [deck, onEnded]);
+
+  useEffect(() => {
+    playback.current = audio.current;
+    visual.current = undefined;
+    spoken.current = undefined;
+    setFallback(undefined);
+    window.speechSynthesis?.cancel();
+  }, [node.id, deck]);
 
   // Restart from the top whenever the station changes — and only then
   useEffect(() => {
@@ -103,6 +130,39 @@ export function DeckPane({
     return () => el.removeEventListener('loadedmetadata', seekThere);
   }, [node.id, deck]);
 
+  useEffect(() => {
+    if (!playing || !fallback || !visual.current) return undefined;
+    let frame = 0;
+    const tick = (now: number): void => {
+      setMs(Math.round(visual.current?.advance(now) ?? 0));
+      onProgress?.(Math.round((visual.current?.currentTime ?? 0) * 1000));
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [fallback, onProgress, playing]);
+
+  useEffect(() => {
+    const speech = window.speechSynthesis;
+    if (!fallback || fallback !== 'speech' || !speech || !deck) return undefined;
+    if (!playing) { speech.pause(); return undefined; }
+    const cueIndex = lastIndexAtOrBefore(deck.narration.map((cue) => cue.startMs), ms);
+    const cue = deck.narration[cueIndex];
+    if (!cue) return undefined;
+    if (spoken.current?.cue === cueIndex && spoken.current.rate === transport.rate) {
+      speech.resume();
+      return undefined;
+    }
+    spoken.current = { cue: cueIndex, rate: transport.rate };
+    speech.cancel();
+    const utterance = new SpeechSynthesisUtterance(cue.text);
+    utterance.lang = narrationLocale === 'en' ? 'en-US' : 'zh-CN';
+    utterance.rate = transport.rate;
+    speech.speak(utterance);
+  }, [deck, fallback, ms, narrationLocale, playing, transport.rate]);
+
+  useEffect(() => () => window.speechSynthesis?.cancel(), [node.id, deck]);
+
   // A new src resets rate and volume — and does it when the media loads, which
   // is after this effect runs, so `onLoadedMetadata` below applies them again.
   // Without that second pass every station started at 1x and then jumped.
@@ -117,7 +177,7 @@ export function DeckPane({
    * second to move a step function.
    */
   useEffect(() => {
-    const el = audio.current;
+    const el = playback.current;
     if (!el || !playing) return undefined;
 
     let frame = 0;
@@ -187,7 +247,8 @@ export function DeckPane({
   const seek = (to: number): void => {
     const el = audio.current;
     if (!el) return;
-    el.currentTime = Math.max(0, to) / 1000;
+    if (visual.current) visual.current.seek(Math.max(0, to) / 1000);
+    else el.currentTime = Math.max(0, to) / 1000;
     setMs(Math.max(0, to));
   };
 
@@ -300,6 +361,7 @@ export function DeckPane({
                 />
               </div>
 
+              {fallback && <span className="deck-fallback">{fallback === 'speech' ? t.deck.localReading : t.deck.visualOnly}</span>}
               <span className="time">{fmt(ms)} / {fmt(deck.durationMs)}</span>
               <span className="ctl-grow" />
 
@@ -355,6 +417,7 @@ export function DeckPane({
       <audio
         ref={audio}
         src={audioSrc}
+        onError={activateFallback}
         onTimeUpdate={(e) => {
           const now = Math.round(e.currentTarget.currentTime * 1000);
           // Coarse, but the only ticker while paused or seeking; the frame loop

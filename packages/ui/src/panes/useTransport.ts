@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PlaybackClock } from './visual-clock';
 
 export const RATES = [0.75, 1, 1.25, 1.5, 2, 3] as const;
 
@@ -58,7 +59,7 @@ export interface Transport {
  * Station changes (↑ / ↓) belong to the app, not here: they are not transport.
  */
 export function useTransport(
-  audio: React.RefObject<HTMLAudioElement | null>,
+  audio: React.RefObject<PlaybackClock | null>,
   enabled = true,
   onFullscreen?: () => void,
   /** Where the reader's stored default puts the dial at the start of a session. */
