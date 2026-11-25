@@ -14,7 +14,7 @@ import type { Library } from '@cairn/core/store/library-disk';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { speakSample } from '@cairn/core/runtime';
-import { readSettings, writeSettings } from './settings';
+import { readSettings, readSyncSettings, writeSettings } from './settings';
 import type {
   ContentLocale, ModelStatus, ShellSettingsValues, UiLocale,
 } from '../shared/settings';
@@ -26,7 +26,7 @@ import { loadSession, saveSession } from './companion/session';
 import { saveWorking } from './companion/working';
 import { runTurn } from './companion/run';
 import type { CompanionEvent } from '../shared/companion-events';
-import type { RequestParams, UniverseChange } from '../shared/schema';
+import type { RequestParams, SyncSettingsValues, UniverseChange } from '../shared/schema';
 import { modelStatus } from './provider';
 import type { BookMeta, BookPreview, Progress } from '../shared/types';
 import { inspect, readBook, sourceOf } from './inspect';
@@ -281,6 +281,10 @@ export function createHandlers({
 
     async setSettings(patch: Partial<ShellSettingsValues>): Promise<ShellSettingsValues> {
       return writeSettings(patch);
+    },
+
+    async getSyncSettings(): Promise<SyncSettingsValues> {
+      return readSyncSettings();
     },
 
     async devBuild(): Promise<boolean> {

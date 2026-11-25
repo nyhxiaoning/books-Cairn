@@ -25,6 +25,11 @@ export interface SyncSummary {
   readonly failedBookIds: readonly string[];
   readonly status: SyncStatus;
 }
+export interface SyncSettingsValues {
+  readonly enabled: boolean;
+  readonly workerUrl: string;
+  readonly username: string;
+}
 
 /**
  * The bridge contract, shared by both sides so they cannot drift.
@@ -72,6 +77,7 @@ export type BunSchema = RPCSchema<{
     /* ---- settings the main process owns; the renderer's own live in localStorage ---- */
     getSettings: { params: void; response: ShellSettingsValues };
     setSettings: { params: Partial<ShellSettingsValues>; response: ShellSettingsValues };
+    getSyncSettings: { params: void; response: SyncSettingsValues };
     /** Whether this is a dev build, which shows the switches only a developer needs. */
     devBuild: { params: void; response: boolean };
     /** The library path, for showing and for revealing in the file manager. */

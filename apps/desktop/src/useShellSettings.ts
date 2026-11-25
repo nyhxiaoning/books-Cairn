@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT, type ShellPrefs, type ShellSettings, type VoiceOption } from '@cairn/ui';
 import {
-  clearCache, dataDir, devBuild, getSettings, inShell, modelStatus, previewVoice,
-  revealDataDir, setSettings,
+  clearCache, dataDir, devBuild, getSettings, getSyncSettings, inShell, modelStatus, previewVoice,
+  revealDataDir, setSettings, onSyncStatus, syncConfigure, syncLogin, syncLogout, syncNow,
+  syncStatus as getSyncStatus,
 } from './bridge';
+import type { SyncStatus } from './shared/schema';
 import {
   DEFAULT_SHELL_SETTINGS, defaultApiKey, EMPTY_PROFILE, VOICES,
   type ContentLocale, type ModelStatus, type ProviderId, type ProviderProfile,
@@ -32,6 +34,8 @@ export function useShellSettings(): ShellSettings | undefined {
   const [dev, setDev] = useState(false);
   const [model, setModel] = useState<ModelStatus>();
   const [previewing, setPreviewing] = useState<ContentLocale>();
+  const [sync, setSync] = useState<SyncStatus>({ state: 'disabled', failedBookIds: [] });
+  const [syncConfig, setSyncConfig] = useState({ enabled: false, workerUrl: '', username: '' });
 
   /** One element reused for every audition, so two cannot overlap. */
   const audio = useRef<HTMLAudioElement | undefined>(undefined);
@@ -41,16 +45,24 @@ export function useShellSettings(): ShellSettings | undefined {
     if (!inShell) return;
     let live = true;
     void (async () => {
-      const [stored, where, model, isDev] = await Promise.all([
-        getSettings(), dataDir(), modelStatus(), devBuild(),
+      const [stored, storedSync, where, model, isDev] = await Promise.all([
+        getSettings(), getSyncSettings(), dataDir(), modelStatus(), devBuild(),
       ]);
       if (!live) return;
       setValues(stored ?? DEFAULT_SHELL_SETTINGS);
       setDir(where);
       setDev(isDev);
       setModel(model);
+      if (storedSync) setSyncConfig(storedSync);
     })();
     return () => { live = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!inShell) return;
+    const stop = onSyncStatus(setSync);
+    void getSyncStatus().then((status) => { if (status) setSync(status); });
+    return stop;
   }, []);
 
   // Stopping playback when the panel closes is the element's own cleanup
@@ -172,6 +184,22 @@ export function useShellSettings(): ShellSettings | undefined {
       devBuild: dev,
       revealDataDir: () => void revealDataDir(),
       clearCache,
+      sync: {
+        workerUrl: syncConfig.workerUrl,
+        username: syncConfig.username,
+        status: sync,
+        configure: async (workerUrl: string) => {
+          const status = await syncConfigure(workerUrl);
+          setSyncConfig((current) => ({ ...current, enabled: true, workerUrl }));
+          return status;
+        },
+        login: async (username: string, password: string) => {
+          await syncLogin(username, password);
+          setSyncConfig((current) => ({ ...current, enabled: true, username }));
+        },
+        logout: syncLogout,
+        syncNow: async () => { await syncNow(); },
+      },
     } satisfies ShellSettings;
-  }, [values, setPref, setProvider, voicesFor, recheckModel, model, audition, previewing, dir, dev]);
+  }, [values, setPref, setProvider, voicesFor, recheckModel, model, audition, previewing, dir, dev, sync, syncConfig]);
 }

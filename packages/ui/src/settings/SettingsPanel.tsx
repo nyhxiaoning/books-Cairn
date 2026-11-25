@@ -9,9 +9,10 @@ import type { ShellSettings } from './shell';
 import {
   BookMark, CacheMark, GearMark, ModelMark, PaletteMark, PlaybackMark, WaveMark,
 } from './icons';
+import { SyncPage } from './SyncPage';
 
 export const SETTINGS_TABS = [
-  'general', 'appearance', 'playback', 'models', 'narration', 'weread', 'data',
+  'general', 'appearance', 'playback', 'models', 'narration', 'weread', 'sync', 'data',
 ] as const;
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number];
@@ -29,6 +30,7 @@ const PAGES: readonly {
   { tab: 'models', group: 'generation', Icon: ModelMark },
   { tab: 'narration', group: 'reading', Icon: WaveMark },
   { tab: 'weread', group: 'reading', Icon: BookMark },
+  { tab: 'sync', group: 'app', Icon: CloudMark },
   { tab: 'data', group: 'generation', Icon: CacheMark },
 ];
 
@@ -142,6 +144,7 @@ export function SettingsPanel({
             {tab === 'models' && <ModelsPage shell={shell} />}
             {tab === 'narration' && <NarrationPage shell={shell} />}
             {tab === 'weread' && <WereadPage shell={shell} />}
+            {tab === 'sync' && <SyncPage shell={shell} />}
             {tab === 'data' && <DataPage shell={shell} />}
           </div>
         </div>
@@ -154,6 +157,14 @@ function CloseMark(): ReactElement {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
       <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+function CloudMark(): ReactElement {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M7 18h10a4 4 0 0 0 .7-7.94A6 6 0 0 0 6.2 8.8 4.5 4.5 0 0 0 7 18Z" />
     </svg>
   );
 }

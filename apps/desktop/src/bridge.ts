@@ -11,7 +11,7 @@ import { decodeError } from './shared/errors';
 import type {
   ContentLocale, ModelStatus, ShellSettingsValues, UiLocale,
 } from './shared/settings';
-import type { CairnRPC, RequestParams, UniverseChange } from './shared/schema';
+import type { CairnRPC, RequestParams, SyncSettingsValues, UniverseChange } from './shared/schema';
 import type { BookMeta, BookPreview, DeckStatus, Progress } from './shared/types';
 import type { AccountStatus, SyncStatus, SyncSummary } from './shared/schema';
 
@@ -287,6 +287,11 @@ export async function setSettings(
 ): Promise<ShellSettingsValues> {
   if (!inShell) throw offline('offline_settings');
   return (await connect()).request.setSettings(patch, POLL_LIMIT).catch(rethrow);
+}
+
+export async function getSyncSettings(): Promise<SyncSettingsValues | undefined> {
+  if (!inShell) return undefined;
+  return (await connect()).request.getSyncSettings(undefined, POLL_LIMIT).catch(rethrow);
 }
 
 export async function devBuild(): Promise<boolean> {

@@ -417,6 +417,7 @@ export function App(): ReactElement {
   if (!bookId) {
     return (
       <div className="shell empty">
+        {shell && <ShelfSyncStatus shell={shell} onRetry={() => void syncNow().catch((cause) => console.error('shelf sync failed', cause))} />}
         <Home
           books={books}
           catalog={catalog}
@@ -554,6 +555,29 @@ export function App(): ReactElement {
       />
 
       {modal}
+    </div>
+  );
+}
+
+function ShelfSyncStatus({ shell, onRetry }: {
+  shell: NonNullable<ReturnType<typeof useShellSettings>>;
+  onRetry: () => void;
+}): ReactElement | null {
+  const { t } = useUi();
+  const status = shell.sync.status;
+  if (status.state === 'disabled') return null;
+  const label = {
+    idle: t.settings.sync.statusIdle,
+    syncing: t.settings.sync.statusSyncing,
+    success: t.settings.sync.statusSuccess,
+    error: t.settings.sync.statusError,
+    disabled: t.settings.sync.statusDisabled,
+  }[status.state];
+  return (
+    <div className="shelf-sync-status" role="status">
+      <span>{status.message ?? label}</span>
+      {status.lastSuccessAt && <span> · {t.settings.sync.lastSuccess(new Date(status.lastSuccessAt).toLocaleString())}</span>}
+      {status.state === 'error' && <button type="button" className="set-btn" onClick={onRetry}>{t.settings.sync.retry}</button>}
     </div>
   );
 }

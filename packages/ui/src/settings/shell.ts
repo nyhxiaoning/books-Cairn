@@ -81,6 +81,25 @@ export interface VoiceOption {
   readonly label: string;
 }
 
+export type SyncState = 'disabled' | 'idle' | 'syncing' | 'success' | 'error';
+
+export interface SyncStatusView {
+  readonly state: SyncState;
+  readonly lastSuccessAt?: string;
+  readonly failedBookIds: readonly string[];
+  readonly message?: string;
+}
+
+export interface SyncSettings {
+  readonly workerUrl: string;
+  readonly username: string;
+  readonly status: SyncStatusView;
+  readonly configure: (workerUrl: string) => Promise<SyncStatusView | undefined>;
+  readonly login: (username: string, password: string) => Promise<void>;
+  readonly logout: () => Promise<void>;
+  readonly syncNow: () => Promise<void>;
+}
+
 export interface ShellSettings {
   readonly prefs: ShellPrefs;
   readonly setPref: <K extends keyof ShellPrefs>(key: K, value: ShellPrefs[K]) => void;
@@ -104,4 +123,5 @@ export interface ShellSettings {
   readonly devBuild: boolean;
   readonly revealDataDir: () => void;
   readonly clearCache: () => Promise<void>;
+  readonly sync: SyncSettings;
 }
