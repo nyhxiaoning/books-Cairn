@@ -20,6 +20,8 @@ import { VisualClock, type PlaybackClock } from './visual-clock';
  */
 /** Commit the playhead no more often than this: 32ms is below what an eye catches. */
 const CLOCK_MS = 32;
+/** Progress persistence is not visual state; four updates per second is enough. */
+const VISUAL_PROGRESS_MS = 250;
 
 export function DeckPane({
   node, deck, audioSrc, narrationLocale, stageTitle, resumeAt, onSelect, onEnded, onProgress,
@@ -52,6 +54,7 @@ export function DeckPane({
   const playback = useRef<PlaybackClock | null>(null);
   const visual = useRef<VisualClock | undefined>(undefined);
   const spoken = useRef<{ cue: number; rate: number } | undefined>(undefined);
+  const lastVisualProgress = useRef(0);
   const fit = useRef<HTMLDivElement>(null);
   const [ms, setMs] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -79,6 +82,11 @@ export function DeckPane({
   // Clause-level lines, derived from the sentence cues the deck already carries,
   // so a book generated before captions existed gets them without regenerating.
   const captions = useMemo(() => toCaptions(deck?.narration ?? []), [deck]);
+  const narrationStarts = useMemo(() => deck?.narration.map((cue) => cue.startMs) ?? [], [deck]);
+  const speechCueIndex = useMemo(
+    () => lastIndexAtOrBefore(narrationStarts, ms),
+    [ms, narrationStarts],
+  );
 
   // Read through a ref so a changing resume point cannot re-trigger the effect
   // below: it is consumed once, on the station it belongs to.
@@ -100,6 +108,7 @@ export function DeckPane({
     playback.current = audio.current;
     visual.current = undefined;
     spoken.current = undefined;
+    lastVisualProgress.current = 0;
     setFallback(undefined);
     window.speechSynthesis?.cancel();
   }, [node.id, deck]);
@@ -131,35 +140,45 @@ export function DeckPane({
   }, [node.id, deck]);
 
   useEffect(() => {
-    if (!playing || !fallback || !visual.current) return undefined;
+    if (!playing || !fallback || !visual.current || !deck) return undefined;
     let frame = 0;
     const tick = (now: number): void => {
-      setMs(Math.round(visual.current?.advance(now) ?? 0));
-      onProgress?.(Math.round((visual.current?.currentTime ?? 0) * 1000));
+      const currentMs = Math.round((visual.current?.advance(now) ?? 0) * 1000);
+      setMs(currentMs);
+      if (
+        currentMs >= deck.durationMs
+        || currentMs - lastVisualProgress.current >= VISUAL_PROGRESS_MS
+      ) {
+        lastVisualProgress.current = currentMs;
+        onProgress?.(currentMs);
+      }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [fallback, onProgress, playing]);
+  }, [deck, fallback, onProgress, playing]);
 
   useEffect(() => {
     const speech = window.speechSynthesis;
     if (!fallback || fallback !== 'speech' || !speech || !deck) return undefined;
-    if (!playing) { speech.pause(); return undefined; }
-    const cueIndex = lastIndexAtOrBefore(deck.narration.map((cue) => cue.startMs), ms);
-    const cue = deck.narration[cueIndex];
+    if (!playing) return undefined;
+    const cue = deck.narration[speechCueIndex];
     if (!cue) return undefined;
-    if (spoken.current?.cue === cueIndex && spoken.current.rate === transport.rate) {
-      speech.resume();
-      return undefined;
-    }
-    spoken.current = { cue: cueIndex, rate: transport.rate };
+    if (spoken.current?.cue === speechCueIndex && spoken.current.rate === transport.rate) return undefined;
+    spoken.current = { cue: speechCueIndex, rate: transport.rate };
     speech.cancel();
     const utterance = new SpeechSynthesisUtterance(cue.text);
     utterance.lang = narrationLocale === 'en' ? 'en-US' : 'zh-CN';
     utterance.rate = transport.rate;
     speech.speak(utterance);
-  }, [deck, fallback, ms, narrationLocale, playing, transport.rate]);
+  }, [deck, fallback, narrationLocale, playing, speechCueIndex, transport.rate]);
+
+  useEffect(() => {
+    const speech = window.speechSynthesis;
+    if (fallback !== 'speech' || !speech) return;
+    if (playing) speech.resume();
+    else speech.pause();
+  }, [fallback, playing]);
 
   useEffect(() => () => window.speechSynthesis?.cancel(), [node.id, deck]);
 
@@ -178,7 +197,7 @@ export function DeckPane({
    */
   useEffect(() => {
     const el = playback.current;
-    if (!el || !playing) return undefined;
+    if (fallback || !el || !playing) return undefined;
 
     let frame = 0;
     let last = 0;
@@ -191,7 +210,7 @@ export function DeckPane({
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, deck]);
+  }, [deck, fallback, playing]);
 
   if (!deck) {
     // Pending is the ordinary case now: the path lands whole and the stations
