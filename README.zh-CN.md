@@ -1,5 +1,41 @@
 [English](./README.md) | 中文
 
+# 开发说明:进入 apps/desktop 目录后
+查看UI: bun run dev
+使用完整功能: bun run start
+
+# 开发计划
+## 1.引入R2:存储内容类似OSS
+- [ ]开发中
+
+
+### R2：S3 兼容对象存储
+
+- 定位：**文件 / 二进制对象存储**，key-value 大文件，没有表结构、不支持 SQL
+- 能力：上传图片、视频、附件、静态资源；完全兼容 S3 API；**无出网流量费**（最大亮点）
+- 适合：头像、上传文件、图片、压缩包、静态资产
+- 限制：单个对象最大 5TiB，按存储 + 读写请求计费，不支持数据库查询
+- 典型场景：用户上传图片、文件托管、静态资源仓库
+
+
+## 2.图书UI调整:针对当前的图书上传展示页面,进行更好的展示,现实成更好的列表展示或文件展示,当前的展示内容有一些问题
+- [ ]开发中
+
+
+## 3.实现如果没有音频播放的时候,可以自动播放功能
+- [ ]开发中
+
+
+- 兼容没有音频播放的时候,暂停的问题
+- 实现一个图书内容,可以结合当前的问题,提问思考
+
+## 4.围绕当前的图书,参考苏格拉底提问的仓库md,引入一套AI的agent对话系统说明
+
+[参考需求文档](./基于%20Markdown%20的个人知识库%20+%20AI%20对话引用系统.md)
+
+
+
+
 [![Release](https://img.shields.io/github/v/release/jiehaoZ/Cairn?label=release)](https://github.com/jiehaoZ/Cairn/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%28untested%29-lightgrey)](#下载)
 [![Bun](https://img.shields.io/badge/Bun-1.3+-000000?logo=bun&logoColor=white)](https://bun.sh)
