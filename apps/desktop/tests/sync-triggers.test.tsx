@@ -56,6 +56,10 @@ mock.module('../src/bridge', () => ({
   exportAudio: async () => ({ path: '', missing: [] }),
   exportSlides: async () => ({ path: '' }),
   clearCache: async () => undefined,
+  getSyncSettings: async () => undefined,
+  syncConfigure: async () => ({ state: 'disabled', failedBookIds: [] }),
+  syncLogin: async () => ({ authenticated: true, username: 'test' }),
+  syncLogout: async () => undefined,
   onSyncStatus: () => () => undefined,
   syncStatus: async () => ({ state: 'disabled', failedBookIds: [] }),
 }));
