@@ -117,6 +117,16 @@ describe('catalog shelf', () => {
     }
   });
 
+  test('keeps the complete title available when the shelf truncates it', () => {
+    const shelf = mount();
+    try {
+      const title = shelf.host.querySelector('.shelf-name');
+      expect(title?.getAttribute('title')).toBe('Thinking, Fast and Slow');
+    } finally {
+      shelf.close();
+    }
+  });
+
   test('opens a shelf row while its more menu stays isolated and keyboard-accessible', () => {
     const shelf = mount();
     try {

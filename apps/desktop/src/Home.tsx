@@ -224,7 +224,7 @@ function ShelfText({ book: b, meta, base }: {
     <>
       {meta?.cover && base && <img className="shelf-cover" src={`${base}/${meta.cover}`} alt="" />}
       <span className="shelf-text">
-        <span className="shelf-name">{b.title}</span>
+        <span className="shelf-name" title={b.title}>{b.title}</span>
         <span className="shelf-meta">
           {t.unit.count(b.stations)} · {b.complete === false ? t.unit.approx : ''}
           {t.unit.minutes(b.minutes)}
