@@ -13,6 +13,7 @@ import type {
 } from './shared/settings';
 import type { CairnRPC, RequestParams, UniverseChange } from './shared/schema';
 import type { BookMeta, BookPreview, DeckStatus, Progress } from './shared/types';
+import type { AccountStatus, SyncStatus, SyncSummary } from './shared/schema';
 
 /**
  * Renderer side of the bridge.
@@ -50,6 +51,7 @@ const progressListeners = new Set<(p: Progress) => void>();
 const deckStatusListeners = new Set<(s: DeckStatus) => void>();
 const companionListeners = new Set<(event: CompanionEvent) => void>();
 const openSettingsListeners = new Set<() => void>();
+const syncStatusListeners = new Set<(status: SyncStatus) => void>();
 
 export function onProgress(fn: (p: Progress) => void): () => void {
   progressListeners.add(fn);
@@ -73,6 +75,11 @@ export function onOpenSettings(fn: () => void): () => void {
   return () => openSettingsListeners.delete(fn);
 }
 
+export function onSyncStatus(fn: (status: SyncStatus) => void): () => void {
+  syncStatusListeners.add(fn);
+  return () => syncStatusListeners.delete(fn);
+}
+
 async function makeRpc() {
   const { Electroview } = await import('electrobun/view');
   // Same helper as the bun side, so both derive local/remote from one schema
@@ -91,6 +98,9 @@ async function makeRpc() {
         },
         openSettings: () => {
           for (const fn of openSettingsListeners) fn();
+        },
+        syncStatus: (status: SyncStatus) => {
+          for (const fn of syncStatusListeners) fn(status);
         },
       },
     },
@@ -315,6 +325,31 @@ export async function revealDataDir(): Promise<void> {
 export async function clearCache(): Promise<void> {
   if (!inShell) throw offline('offline_delete');
   await (await connect()).request.clearCache(undefined, ANSWER_LIMIT).catch(rethrow);
+}
+
+export async function syncLogin(username: string, password: string): Promise<AccountStatus> {
+  if (!inShell) throw offline('offline_settings');
+  return (await connect()).request.syncLogin({ username, password }, ANSWER_LIMIT).catch(rethrow);
+}
+
+export async function syncConfigure(workerUrl: string): Promise<SyncStatus | undefined> {
+  if (!inShell) return undefined;
+  return (await connect()).request.syncConfigure({ workerUrl }, ANSWER_LIMIT).catch(rethrow);
+}
+
+export async function syncLogout(): Promise<void> {
+  if (!inShell) return;
+  await (await connect()).request.syncLogout(undefined, POLL_LIMIT).catch(rethrow);
+}
+
+export async function syncNow(): Promise<SyncSummary> {
+  if (!inShell) throw offline('offline_settings');
+  return (await connect()).request.syncNow(undefined, ANSWER_LIMIT).catch(rethrow);
+}
+
+export async function syncStatus(): Promise<SyncStatus | undefined> {
+  if (!inShell) return undefined;
+  return (await connect()).request.syncStatus(undefined, POLL_LIMIT).catch(rethrow);
 }
 
 /**

@@ -93,6 +93,7 @@ const validSession = (value: unknown): value is SessionInfo =>
 
 export interface CloudSyncClient {
   login(credentials: LoginCredentials): Promise<SessionInfo>;
+  logout(): Promise<void>;
   fetchManifest(): Promise<CloudManifest>;
   uploadResource(input: ResourceUpload): Promise<ResourceReceipt>;
   downloadResource(input: ResourceDownload): Promise<Uint8Array>;
@@ -125,6 +126,10 @@ export function createCloudSyncClient(workerUrl: string, sessionStore: SessionSt
       if (!validSession(value)) throw new CloudSyncError('invalid_response', 'Login response is invalid.', response.status);
       await sessionStore.write(value);
       return value;
+    },
+
+    async logout(): Promise<void> {
+      await request('/api/auth/logout', { method: 'POST' });
     },
 
     async fetchManifest(): Promise<CloudManifest> {

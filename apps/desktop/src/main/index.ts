@@ -17,12 +17,16 @@ import { createHandlers } from './rpc';
 import { installMenu, OPEN_SETTINGS, OPEN_INSPECTOR } from './menu';
 import { providerFor } from './provider';
 import { readReadingRecord } from './reading';
-import { effectiveWereadKey, readSettings, writeSettings } from './settings';
+import { effectiveWereadKey, readSettings, readSyncSettings, writeSettings, writeSyncSettings } from './settings';
 import { createUniverseService } from './universe/service';
 import { createWeread } from './weread/service';
 import { DATA_DIR, library } from './store';
 import { voiceFor, type UiLocale } from '../shared/settings';
 import type { CairnRPC } from '../shared/schema';
+import { createSessionStore } from './sync/session-store';
+import { createCloudSyncClient } from './sync/client';
+import { createSyncService } from './sync/service';
+import { join } from 'node:path';
 
 const DEV_SERVER = 'http://localhost:5173';
 
@@ -78,12 +82,28 @@ const universe = createUniverseService({
 
 const exporter = createExportService({ library, dataDir: DATA_DIR });
 
+const syncSettings = await readSyncSettings();
+const syncSessionStore = createSessionStore(join(DATA_DIR, 'sync-session.json'));
+const syncClient = syncSettings.workerUrl
+  ? createCloudSyncClient(syncSettings.workerUrl, syncSessionStore)
+  : undefined;
+const sync = createSyncService({
+  library,
+  client: syncSettings.enabled ? syncClient : undefined,
+  sessionStore: syncSessionStore,
+  workerUrl: syncSettings.workerUrl,
+  createClient: (workerUrl) => createCloudSyncClient(workerUrl, syncSessionStore),
+  writeSyncSettings,
+  emit: (status) => send().syncStatus(status),
+});
+
 const handlers = createHandlers({
   books,
   weread,
   catalog,
   universe,
   exporter,
+  sync,
   providerFor,
   library,
   devBuild,
@@ -91,6 +111,7 @@ const handlers = createHandlers({
   emit: {
     progress: (p) => send().progress(p),
     companion: (event) => send().companion(event),
+    syncStatus: (status) => send().syncStatus(status),
   },
 });
 

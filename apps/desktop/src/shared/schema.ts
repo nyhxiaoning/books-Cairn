@@ -8,6 +8,24 @@ import type { CompanionEvent } from './companion-events';
 import type { ContentLocale, ModelStatus, ShellSettingsValues, UiLocale } from './settings';
 import type { BookMeta, BookPreview, DeckStatus, Progress } from './types';
 
+export type SyncState = 'disabled' | 'idle' | 'syncing' | 'success' | 'error';
+export interface SyncStatus {
+  readonly state: SyncState;
+  readonly lastSuccessAt?: string;
+  readonly failedBookIds: readonly string[];
+  readonly message?: string;
+}
+export interface AccountStatus {
+  readonly authenticated: boolean;
+  readonly expiresAt?: string;
+}
+export interface SyncSummary {
+  readonly uploadedBookIds: readonly string[];
+  readonly downloadedBookIds: readonly string[];
+  readonly failedBookIds: readonly string[];
+  readonly status: SyncStatus;
+}
+
 /**
  * The bridge contract, shared by both sides so they cannot drift.
  *
@@ -63,6 +81,11 @@ export type BunSchema = RPCSchema<{
     revealDataDir: { params: void; response: null };
     /** Throws away everything derived from the books, keeping the books. */
     clearCache: { params: void; response: null };
+    syncLogin: { params: { username: string; password: string }; response: AccountStatus };
+    syncConfigure: { params: { workerUrl: string }; response: SyncStatus };
+    syncLogout: { params: void; response: null };
+    syncNow: { params: void; response: SyncSummary };
+    syncStatus: { params: void; response: SyncStatus };
     /**
      * The menu bar is drawn by the OS, so its words cannot come from the
      * renderer's dictionary. The webview tells the main process which language
@@ -88,6 +111,7 @@ export type WebviewSchema = RPCSchema<{
     companion: CompanionEvent;
     /** The native menu's Settings item, which the webview owns the panel for. */
     openSettings: null;
+    syncStatus: SyncStatus;
   };
 }>;
 

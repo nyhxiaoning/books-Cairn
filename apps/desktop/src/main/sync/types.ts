@@ -36,4 +36,10 @@ export interface ResourceReceipt {
   readonly byteSize: number;
 }
 
+export interface ManifestReceipt {
+  readonly bookId: string;
+  readonly version: number;
+  readonly resources: number;
+}
+
 export type { SyncFile, SyncManifest };

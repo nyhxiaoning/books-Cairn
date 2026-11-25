@@ -34,6 +34,8 @@ import { CairnError } from '@cairn/core/errors';
 import { encodingErrors } from '../shared/errors';
 import type { UniverseService } from './universe/service';
 import type { ExportService } from './export/service';
+import type { SyncService } from './sync/service';
+import type { SyncStatus } from '../shared/schema';
 
 
 const quietly = <T>(what: string, fallback: T) => (cause: unknown): T => {
@@ -51,6 +53,7 @@ export interface HandlerDeps {
   readonly catalog: CatalogStore;
   readonly universe: UniverseService;
   readonly exporter: ExportService;
+  readonly sync?: SyncService;
   readonly providerFor: (bookId: string) => Promise<LlmProvider>;
   readonly library: Pick<Library, 'list' | 'loadNotes' | 'patchEntry' | 'loadPath' | 'rewritePath'>;
   readonly devBuild: boolean;
@@ -60,11 +63,12 @@ export interface HandlerDeps {
   readonly emit: {
     readonly progress: (p: Progress) => void;
     readonly companion: (event: CompanionEvent) => void;
+    readonly syncStatus?: (status: SyncStatus) => void;
   };
 }
 
 export function createHandlers({
-  books, weread, catalog, universe, exporter, providerFor, library: bookLibrary, devBuild, menu, emit,
+  books, weread, catalog, universe, exporter, sync, providerFor, library: bookLibrary, devBuild, menu, emit,
 }: HandlerDeps) {
   /** One reader, one conversation: a second send while a turn runs is refused. */
   let activeChat: { readonly turnId: string; readonly controller: AbortController } | undefined;
@@ -109,6 +113,7 @@ export function createHandlers({
         });
         // A new mapped book may complete candidates in existing universes.
         await universe.relink().catch(quietly('universe relink failed', undefined));
+        void sync?.syncNow().catch((cause) => console.error('book sync failed', cause));
         return entry;
       } finally {
         latest = undefined;
@@ -358,6 +363,32 @@ export function createHandlers({
       await rm(join(DATA_DIR, '.cache'), { recursive: true, force: true });
       await rm(join(DATA_DIR, '.preview'), { recursive: true, force: true });
       return null;
+    },
+
+    async syncLogin(params: { username: string; password: string }) {
+      if (!sync) throw new Error('sync_unavailable');
+      return sync.login(params.username, params.password);
+    },
+
+    async syncConfigure(params: { workerUrl: string }) {
+      if (!sync) throw new Error('sync_unavailable');
+      return sync.configure(params.workerUrl);
+    },
+
+    async syncLogout(): Promise<null> {
+      if (!sync) throw new Error('sync_unavailable');
+      await sync.logout();
+      return null;
+    },
+
+    async syncNow() {
+      if (!sync) throw new Error('sync_unavailable');
+      return sync.syncNow();
+    },
+
+    async syncStatus() {
+      if (!sync) return { state: 'disabled' as const, failedBookIds: [] as readonly string[] };
+      return sync.status();
     },
   };
 
