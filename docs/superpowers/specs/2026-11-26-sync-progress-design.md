@@ -9,7 +9,7 @@ Make Cloudflare book synchronization observable at book and resource level so a 
 - Add progress data to the existing main-process-to-webview sync status.
 - Report progress while reading the cloud manifest, processing each book, uploading or downloading each resource, and installing a downloaded book.
 - Render an overall progress bar, current book, current phase, and current resource in the settings page.
-- Preserve the existing remote-first conflict behavior and the rule that chapter text and generation cache never sync.
+- Preserve the existing remote-first conflict behavior and the rule that chapter text, generation cache, and all MP3 audio never sync.
 - Add tests for progress emission and the settings rendering.
 
 ## Data contract
@@ -28,7 +28,7 @@ The object is optional while the service is disabled or idle. On failure, the la
 
 ## Data flow
 
-The sync service emits progress immediately before and after each meaningful operation. A local-only book reports manifest upload followed by each resource upload. A cloud-only or changed book reports each resource download followed by local installation. The UI receives the existing `syncStatus` message, so no new polling or renderer-to-worker access is needed.
+The sync service emits progress immediately before and after each meaningful operation. A local-only book reports manifest upload followed by each non-audio resource upload. A cloud-only or changed book reports each non-audio resource download followed by local installation. MP3 files are excluded when building the local manifest and are never requested from R2. The UI receives the existing `syncStatus` message, so no new polling or renderer-to-worker access is needed.
 
 The service counts the union of local and cloud book IDs once the cloud manifest is read. Books are processed in the existing order: remote books first, then local-only books. A failed book advances the overall run and remains in `failedBookIds`, allowing later books to continue.
 
@@ -45,7 +45,7 @@ After an error, the last known current book and resource remain visible, followe
 
 ## Error handling
 
-Progress reporting must not change sync failure semantics. A progress callback is bookkeeping only; an exception in the sync operation still marks that book as failed and allows the next book to run. The final status is `success` only when no book or top-level operation failed.
+Progress reporting must not change sync failure semantics. A progress callback is bookkeeping only; an exception in the sync operation still marks that book as failed and allows the next book to run. MP3 filtering must happen at the shared sync allowlist so neither upload nor download can include audio. The final status is `success` only when no book or top-level operation failed.
 
 ## Verification
 
