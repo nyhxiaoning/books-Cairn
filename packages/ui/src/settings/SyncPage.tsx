@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useUi } from './SettingsProvider';
-import type { ShellSettings, SyncState } from './shell';
+import type { ShellSettings, SyncProgress, SyncState } from './shell';
 import { Offline, Row, Section, StackedRow } from './rows';
 
 const statusCopy = (state: SyncState, t: ReturnType<typeof useUi>['t']): string => ({
@@ -11,6 +11,11 @@ const statusCopy = (state: SyncState, t: ReturnType<typeof useUi>['t']): string 
   success: t.settings.sync.statusSuccess,
   error: t.settings.sync.statusError,
 }[state]);
+
+const progressPercent = (progress: SyncProgress): number => {
+  if (progress.totalBooks <= 0) return 0;
+  return Math.min(100, Math.max(0, (progress.completedBooks / progress.totalBooks) * 100));
+};
 
 export function SyncPage({ shell }: { shell?: ShellSettings }): ReactElement {
   const { t } = useUi();
@@ -118,6 +123,8 @@ export function SyncPage({ shell }: { shell?: ShellSettings }): ReactElement {
         </span>
       </Row>
 
+      {shell.sync.status.progress && <SyncProgressView progress={shell.sync.status.progress} t={t} />}
+
       {shell.sync.status.lastSuccessAt && (
         <div className="set-row">
           <span className="set-hint">{t.settings.sync.lastSuccess(formatDate(shell.sync.status.lastSuccessAt))}</span>
@@ -155,6 +162,26 @@ export function SyncPage({ shell }: { shell?: ShellSettings }): ReactElement {
         </span>
       </div>
     </Section>
+  );
+}
+
+function SyncProgressView({
+  progress,
+  t,
+}: {
+  readonly progress: SyncProgress;
+  readonly t: ReturnType<typeof useUi>['t'];
+}): ReactElement {
+  const percent = progressPercent(progress);
+  return (
+    <div className="set-row" data-testid="sync-progress">
+      <progress className="set-progress" max={100} value={percent} aria-label={t.settings.sync.booksProgress(progress.completedBooks, progress.totalBooks)} />
+      <span className="set-hint">{t.settings.sync.booksProgress(progress.completedBooks, progress.totalBooks)}</span>
+      {progress.currentBookTitle && <span className="set-hint">{t.settings.sync.currentBook(progress.currentBookTitle)}</span>}
+      <span className="set-hint">{t.settings.sync.progressPhase[progress.phase]}</span>
+      <span className="set-hint">{t.settings.sync.resourcesProgress(progress.completedResources, progress.totalResources)}</span>
+      {progress.currentResourcePath && <span className="set-hint">{t.settings.sync.currentResource(progress.currentResourcePath)}</span>}
+    </div>
   );
 }
 

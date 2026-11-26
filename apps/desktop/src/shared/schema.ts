@@ -9,11 +9,26 @@ import type { ContentLocale, ModelStatus, ShellSettingsValues, UiLocale } from '
 import type { BookMeta, BookPreview, DeckStatus, Progress } from './types';
 
 export type SyncState = 'disabled' | 'idle' | 'syncing' | 'success' | 'error';
+export type SyncProgressPhase = 'manifest' | 'uploading' | 'downloading' | 'installing' | 'complete';
+
+export interface SyncProgress {
+  readonly totalBooks: number;
+  readonly completedBooks: number;
+  readonly currentBookIndex: number;
+  readonly currentBookId: string;
+  readonly currentBookTitle: string;
+  readonly phase: SyncProgressPhase;
+  readonly completedResources: number;
+  readonly totalResources: number;
+  readonly currentResourcePath?: string;
+}
+
 export interface SyncStatus {
   readonly state: SyncState;
   readonly lastSuccessAt?: string;
   readonly failedBookIds: readonly string[];
   readonly message?: string;
+  readonly progress?: SyncProgress;
 }
 export interface AccountStatus {
   readonly authenticated: boolean;

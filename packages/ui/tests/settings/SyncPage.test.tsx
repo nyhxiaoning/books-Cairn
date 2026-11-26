@@ -24,7 +24,14 @@ const shell: ShellSettings = {
   sync: {
     workerUrl: 'https://books.example.workers.dev',
     username: 'reader',
-    status: { state: 'success', failedBookIds: [], lastSuccessAt: '2026-11-26T00:00:00.000Z' },
+    status: {
+      state: 'success', failedBookIds: [], lastSuccessAt: '2026-11-26T00:00:00.000Z',
+      progress: {
+        totalBooks: 18, completedBooks: 2, currentBookIndex: 3, currentBookId: 'book-3',
+        currentBookTitle: '测试书', phase: 'uploading', completedResources: 4, totalResources: 7,
+        currentResourcePath: 'decks/n3.json',
+      },
+    },
     configure: async () => undefined,
     login: async () => {},
     logout: async () => {},
@@ -44,6 +51,10 @@ test('sync page exposes configuration, login and retry controls', () => {
   expect(html).toContain('Log in');
   expect(html).toContain('Sync now');
   expect(html).toContain('Last successful sync:');
+  expect(html).toContain('2/18');
+  expect(html).toContain('测试书');
+  expect(html).toContain('Uploading resources');
+  expect(html).toContain('decks/n3.json');
   expect(html).toMatch(/type="url"[^>]*value="https:\/\/books\.example\.workers\.dev"/);
   expect(html).toMatch(/autoComplete="username"[^>]*value="reader"/);
 });
