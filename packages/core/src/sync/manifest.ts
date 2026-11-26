@@ -31,7 +31,6 @@ const COVER = /^cover\.(?:png|jpe?g|webp|avif)$/i;
 const contentTypeFor = (path: string): string | undefined => {
   if (path === 'path.json' || path === 'catalog.json' || path === 'progress.json') return 'application/json';
   if (/^decks\/[A-Za-z0-9][A-Za-z0-9_-]{0,127}\.json$/.test(path)) return 'application/json';
-  if (/^audio\/[A-Za-z0-9][A-Za-z0-9_-]{0,127}\.mp3$/.test(path)) return 'audio/mpeg';
   if (COVER.test(path)) {
     const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
     return extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : `image/${extension}`;

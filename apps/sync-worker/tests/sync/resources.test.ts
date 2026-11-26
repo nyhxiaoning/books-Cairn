@@ -115,22 +115,22 @@ test('authenticated manifest read returns owned books and resources', async () =
 
 test('resource put stores R2 bytes and D1 hash metadata, then get returns bytes', async () => {
   const { env, cookie, resources } = await makeEnvironment();
-  const bytes = new TextEncoder().encode('audio');
+  const bytes = new TextEncoder().encode('{}');
   const hash = await sha256(bytes.buffer);
-  const response = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/audio/n0.mp3', {
-    method: 'PUT', headers: { cookie, 'content-type': 'audio/mpeg', 'content-length': String(bytes.byteLength), 'x-content-sha256': hash, 'x-base-version': '1' }, body: bytes.buffer as ArrayBuffer,
+  const response = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/path.json', {
+    method: 'PUT', headers: { cookie, 'content-type': 'application/json', 'content-length': String(bytes.byteLength), 'x-content-sha256': hash, 'x-base-version': '1' }, body: bytes.buffer as ArrayBuffer,
   }), env);
   expect(response.status).toBe(200);
-  expect(resources.get('book-123/audio/n0.mp3')?.content_hash).toBe(hash);
+  expect(resources.get('book-123/path.json')?.content_hash).toBe(hash);
 
-  const downloaded = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/audio/n0.mp3', { headers: { cookie } }), env);
+  const downloaded = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/path.json', { headers: { cookie } }), env);
   expect(downloaded.status).toBe(200);
-  expect(await downloaded.text()).toBe('audio');
+  expect(await downloaded.text()).toBe('{}');
 });
 
 test('does not expose a book to another administrator', async () => {
   const { env, otherCookie } = await makeEnvironment();
-  const response = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/audio/n0.mp3', { headers: { cookie: otherCookie } }), env);
+  const response = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/path.json', { headers: { cookie: otherCookie } }), env);
   expect(response.status).toBe(404);
 });
 
@@ -138,6 +138,7 @@ test('rejects unauthenticated, private/traversal, wrong content type, and hash m
   const { env, cookie } = await makeEnvironment();
   expect((await app.fetch(new Request('https://cairn.test/api/sync/manifest'), env)).status).toBe(401);
   expect((await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/chapters.json', { headers: { cookie } }), env)).status).toBe(400);
+  expect((await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/audio/n0.mp3', { headers: { cookie } }), env)).status).toBe(400);
   expect((await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/resource/%2e%2e/secret', { headers: { cookie } }), env)).status).toBeGreaterThanOrEqual(400);
   const request = (contentType: string, hash: string) => new Request('https://cairn.test/api/sync/books/book-123/resource/path.json', {
     method: 'PUT', headers: { cookie, 'content-type': contentType, 'content-length': '2', 'x-content-sha256': hash }, body: '{}',
