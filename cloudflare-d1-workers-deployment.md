@@ -306,7 +306,8 @@ bunx wrangler d1 migrations apply cairn-sync --remote
 创建 Worker Secret：
 
 ```bash
-openssl rand -hex 32 | bunx wrangler secret put ADMIN_INIT_SECRET
+openssl rand -hex 32 | bunx wrangler secret put ADMIN_INIT_SECRET \
+  --config apps/sync-worker/wrangler.jsonc
 ```
 
 部署前运行安全检查；它会拒绝占位符、检查 Wrangler 登录状态和远端 Secret 名称，

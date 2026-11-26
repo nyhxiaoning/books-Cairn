@@ -47,7 +47,8 @@ a required deployment secret. Wrangler stores Secret values remotely and does
 not print them back.
 
 ```sh
-openssl rand -hex 32 | bunx wrangler secret put ADMIN_INIT_SECRET
+openssl rand -hex 32 | bunx wrangler secret put ADMIN_INIT_SECRET \
+  --config apps/sync-worker/wrangler.jsonc
 ```
 
 Initialize the single administrator once after deployment. Use a password
@@ -77,7 +78,8 @@ remote secret exists. It never prints secret values.
 
 ```sh
 bun run sync-worker:preflight
-bunx wrangler d1 migrations apply cairn-sync --remote
+bunx wrangler d1 migrations apply cairn-sync --remote \
+  --config apps/sync-worker/wrangler.jsonc
 bunx wrangler deploy --config apps/sync-worker/wrangler.jsonc
 ```
 

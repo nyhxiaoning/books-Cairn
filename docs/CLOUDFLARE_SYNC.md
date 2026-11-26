@@ -64,7 +64,8 @@ current session implementation uses random session tokens and stores only
 their SHA-256 digests, so `SESSION_SECRET` is not a required deployment secret:
 
 ```sh
-openssl rand -hex 32 | bunx wrangler secret put ADMIN_INIT_SECRET
+openssl rand -hex 32 | bunx wrangler secret put ADMIN_INIT_SECRET \
+  --config apps/sync-worker/wrangler.jsonc
 ```
 
 After deploying, initialize the administrator through
@@ -80,7 +81,8 @@ fails on placeholders and never prints secret values:
 
 ```sh
 bun run sync-worker:preflight
-bunx wrangler d1 migrations apply cairn-sync --remote
+bunx wrangler d1 migrations apply cairn-sync --remote \
+  --config apps/sync-worker/wrangler.jsonc
 bunx wrangler deploy --config apps/sync-worker/wrangler.jsonc
 ```
 
