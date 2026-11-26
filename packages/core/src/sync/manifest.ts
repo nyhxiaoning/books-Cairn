@@ -57,6 +57,7 @@ export const buildSyncManifest = (entry: LibraryEntry, files: readonly SyncFile[
   const resources = files
     .filter((file) => isSyncablePath(file.path))
     .filter((file) => syncContentType(file.path) === file.contentType)
+    .map(({ path, contentType, byteSize, contentHash }) => ({ path, contentType, byteSize, contentHash }))
     .sort((left, right) => left.path.localeCompare(right.path));
 
   return {

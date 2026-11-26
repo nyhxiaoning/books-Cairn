@@ -21,6 +21,14 @@ test('manifest filters invalid files, includes metadata, and sorts paths', () =>
   expect(manifest.resources.map(({ path }) => path)).toEqual(['path.json']);
 });
 
+test('manifest metadata never carries resource bytes into the JSON request', () => {
+  const resource = { ...file('path.json'), bytes: new Uint8Array(2_000_000) };
+  const manifest = buildSyncManifest(entry, [resource]);
+  expect(manifest.resources).toEqual([file('path.json')]);
+  expect(JSON.stringify(manifest)).not.toContain('bytes');
+  expect(new TextEncoder().encode(JSON.stringify({ ...manifest, baseVersion: 0 })).byteLength).toBeLessThan(1024);
+});
+
 test('resource keys are deterministic and administrator scoped', () => {
   expect(resourceKey('admin-1', 'book-123', 'path.json')).toBe('admins/admin-1/books/book-123/path.json');
   expect(resourceKey('admin-2', 'book-123', 'path.json')).not.toBe(resourceKey('admin-1', 'book-123', 'path.json'));
