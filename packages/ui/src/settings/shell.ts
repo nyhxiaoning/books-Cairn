@@ -81,7 +81,7 @@ export interface VoiceOption {
   readonly label: string;
 }
 
-export type SyncState = 'disabled' | 'idle' | 'syncing' | 'success' | 'error';
+export type SyncState = 'disabled' | 'idle' | 'syncing' | 'success' | 'error' | 'conflict';
 export type SyncProgressPhase = 'manifest' | 'uploading' | 'downloading' | 'installing' | 'complete';
 
 export interface SyncProgress {
@@ -111,7 +111,7 @@ export interface SyncSettings {
   readonly configure: (workerUrl: string) => Promise<SyncStatusView | undefined>;
   readonly login: (username: string, password: string) => Promise<void>;
   readonly logout: () => Promise<void>;
-  readonly syncBook: (bookId: string) => Promise<void>;
+  readonly syncBook: (bookId: string, overwrite?: boolean) => Promise<void>;
 }
 
 export interface ShellSettings {

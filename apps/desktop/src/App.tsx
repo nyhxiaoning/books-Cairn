@@ -426,7 +426,12 @@ export function App(): ReactElement {
           onEditCatalog={(id) => { openDetails(id); setEditingCatalog(id); }}
           onBuildUniverse={(id) => openDetails(id, 'universe')}
           {...(inShell ? { onSyncBook: async (id: string) => {
-            await syncBook(id);
+            const result = await syncBook(id);
+            if (result.requiresConfirmation && result.conflict) {
+              const confirmed = window.confirm(t.settings.sync.overwriteConfirm(result.conflict.title));
+              if (!confirmed) return;
+              await syncBook(id, true);
+            }
             setBooks(await listBooks());
           }, syncingBookId: shell?.sync.status.state === 'syncing' ? shell.sync.status.progress?.currentBookId : undefined } : {})}
           onRenamed={(entry) => setBooks((list) => list.map((b) => (b.id === entry.id ? entry : b)))}
@@ -572,6 +577,7 @@ function ShelfSyncStatus({ shell }: {
     syncing: t.settings.sync.statusSyncing,
     success: t.settings.sync.statusSuccess,
     error: t.settings.sync.statusError,
+    conflict: t.settings.sync.statusConflict,
     disabled: t.settings.sync.statusDisabled,
   }[status.state];
   return (

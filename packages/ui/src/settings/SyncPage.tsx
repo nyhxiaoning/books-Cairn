@@ -10,6 +10,7 @@ const statusCopy = (state: SyncState, t: ReturnType<typeof useUi>['t']): string 
   syncing: t.settings.sync.statusSyncing,
   success: t.settings.sync.statusSuccess,
   error: t.settings.sync.statusError,
+  conflict: t.settings.sync.statusConflict,
 }[state]);
 
 const progressPercent = (progress: SyncProgress): number => {

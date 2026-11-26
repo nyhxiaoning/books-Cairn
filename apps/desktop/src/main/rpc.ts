@@ -384,10 +384,10 @@ export function createHandlers({
       return null;
     },
 
-    async syncBook(params: { bookId: string }) {
+    async syncBook(params: { bookId: string; overwrite?: boolean }) {
       if (!sync) throw new Error('sync_unavailable');
       if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
-      return sync.syncBook(params.bookId);
+      return sync.syncBook(params.bookId, params.overwrite === true);
     },
 
     async syncStatus() {

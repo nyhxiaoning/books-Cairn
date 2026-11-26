@@ -347,9 +347,9 @@ export async function syncLogout(): Promise<void> {
   await (await connect()).request.syncLogout(undefined, POLL_LIMIT).catch(rethrow);
 }
 
-export async function syncBook(bookId: string): Promise<SyncSummary> {
+export async function syncBook(bookId: string, overwrite = false): Promise<SyncSummary> {
   if (!inShell) throw offline('offline_settings');
-  return (await connect()).request.syncBook({ bookId }, ANSWER_LIMIT).catch(rethrow);
+  return (await connect()).request.syncBook({ bookId, overwrite }, ANSWER_LIMIT).catch(rethrow);
 }
 
 export async function syncStatus(): Promise<SyncStatus | undefined> {

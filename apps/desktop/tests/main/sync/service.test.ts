@@ -136,16 +136,22 @@ test('downloads a cloud-only book and installs it atomically through the library
   expect(result.status.progress).toMatchObject({ totalBooks: 1, completedBooks: 1, currentBookTitle: 'Cloud', phase: 'complete' });
 });
 
-test('prefers the cloud version when both sides contain a changed book', async () => {
+test('asks before replacing a changed cloud book, then overwrites after confirmation', async () => {
   const local = filesFor('local');
   const remoteFiles = filesFor('remote');
   const manifest: SyncManifest = {
     ...entry('book-one', 'Cloud title'), bookId: 'book-one', version: 4,
     resources: remoteFiles.map((file) => ({ path: file.path, contentType: 'application/json', byteSize: bytes(`download:${file.path}`).byteLength, contentHash: hash(bytes(`download:${file.path}`)) })),
   };
-  const { service, installed } = setup([entry('book-one', 'Local title')], new Map([['book-one', local]]), { books: [manifest] });
-  await service.syncBook('book-one');
-  expect(installed).toEqual(['book-one']);
+  const { service, installed, uploaded } = setup([entry('book-one', 'Local title')], new Map([['book-one', local]]), { books: [manifest] });
+  const first = await service.syncBook('book-one');
+  expect(first.requiresConfirmation).toBe(true);
+  expect(first.conflict).toEqual({ bookId: 'book-one', title: 'Cloud title', cloudVersion: 4 });
+  expect(installed).toEqual([]);
+  const second = await service.syncBook('book-one', true);
+  expect(second.uploadedBookIds).toEqual(['book-one']);
+  expect(uploaded).toEqual(['book-one:path.json', 'book-one:decks/index.json']);
+  expect(installed).toEqual([]);
 });
 
 test('keeps local playback available when a cloud transfer fails', async () => {
@@ -154,7 +160,7 @@ test('keeps local playback available when a cloud transfer fails', async () => {
     ...entry('book-one', 'Cloud title'), bookId: 'book-one', version: 2,
     resources: local.map((file) => ({ path: file.path, contentType: 'application/json', byteSize: 1, contentHash: '0'.repeat(64) })),
   };
-  const setupResult = setup([entry('book-one', 'Local title')], new Map([['book-one', local]]), { books: [manifest] });
+  const setupResult = setup([], new Map(), { books: [manifest] });
   const result = await setupResult.service.syncBook('book-one');
   expect(result.failedBookIds).toEqual(['book-one']);
   expect(setupResult.installed).toEqual([]);

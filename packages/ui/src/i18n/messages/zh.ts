@@ -394,6 +394,8 @@ export const zh: Messages = {
       statusSyncing: '同步中…',
       statusSuccess: '已同步',
       statusError: '同步失败',
+      statusConflict: '云端已有不同版本',
+      overwriteConfirm: (title: string) => `《${title}》在云端已有不同版本，是否用本地版本覆盖云端？`,
       progressPhase: {
         manifest: '正在读取云端清单',
         uploading: '正在上传资源',

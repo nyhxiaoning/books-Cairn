@@ -8,7 +8,7 @@ import type { CompanionEvent } from './companion-events';
 import type { ContentLocale, ModelStatus, ShellSettingsValues, UiLocale } from './settings';
 import type { BookMeta, BookPreview, DeckStatus, Progress } from './types';
 
-export type SyncState = 'disabled' | 'idle' | 'syncing' | 'success' | 'error';
+export type SyncState = 'disabled' | 'idle' | 'syncing' | 'success' | 'error' | 'conflict';
 export type SyncProgressPhase = 'manifest' | 'uploading' | 'downloading' | 'installing' | 'complete';
 
 export interface SyncProgress {
@@ -39,6 +39,12 @@ export interface SyncSummary {
   readonly downloadedBookIds: readonly string[];
   readonly failedBookIds: readonly string[];
   readonly status: SyncStatus;
+  readonly requiresConfirmation?: boolean;
+  readonly conflict?: {
+    readonly bookId: string;
+    readonly title: string;
+    readonly cloudVersion: number;
+  };
 }
 export interface SyncSettingsValues {
   readonly enabled: boolean;
@@ -105,7 +111,7 @@ export type BunSchema = RPCSchema<{
     syncLogin: { params: { username: string; password: string }; response: AccountStatus };
     syncConfigure: { params: { workerUrl: string }; response: SyncStatus };
     syncLogout: { params: void; response: null };
-    syncBook: { params: { bookId: string }; response: SyncSummary };
+    syncBook: { params: { bookId: string; overwrite?: boolean }; response: SyncSummary };
     syncStatus: { params: void; response: SyncStatus };
     /**
      * The menu bar is drawn by the OS, so its words cannot come from the

@@ -143,7 +143,7 @@ export function createSyncService(deps: SyncServiceDeps) {
     }
   };
 
-  const run = async (bookId: string): Promise<SyncSummary> => {
+  const run = async (bookId: string, overwrite: boolean): Promise<SyncSummary> => {
     if (!client || !(await deps.sessionStore.read())) {
       const next = publish({ state: 'disabled', failedBookIds: [] });
       return emptySummary(next);
@@ -170,24 +170,45 @@ export function createSyncService(deps: SyncServiceDeps) {
       const localEntry: LibraryEntry | undefined = localEntries.find((entry) => entry.id === bookId);
       const remote = remoteBooks.find((book) => book.bookId === bookId);
       if (!localEntry && !remote) throw new Error('book_not_found');
+      const local = localEntry ? await exportSyncBook(deps.library, bookId) : undefined;
+      if (remote && local && !sameManifest(local.manifest, remote) && !overwrite) {
+        const conflict = { bookId, title: remote.title, cloudVersion: remote.version };
+        const conflictProgress: SyncProgress = {
+          ...progress, currentBookTitle: remote.title, phase: 'manifest',
+          completedResources: 0, totalResources: Math.max(local.files.length, remote.resources.length),
+        };
+        const conflictStatus = publish({
+          state: 'conflict', failedBookIds: [], message: 'sync_conflict', progress: conflictProgress,
+        });
+        return {
+          uploadedBookIds: [], downloadedBookIds: [], failedBookIds: [], status: conflictStatus,
+          requiresConfirmation: true, conflict,
+        };
+      }
 
       try {
         publishProgress({
           currentBookTitle: remote?.title ?? localEntry?.title ?? '',
-          phase: remote ? 'downloading' : 'manifest',
+          phase: remote && !overwrite ? 'downloading' : 'manifest',
           completedResources: 0,
-          totalResources: remote?.resources.length ?? 0,
+          totalResources: local?.files.length ?? remote?.resources.length ?? 0,
           currentResourcePath: undefined,
         });
-        const local = localEntry ? await exportSyncBook(deps.library, bookId) : undefined;
         if (remote) {
           if (!local || !sameManifest(local.manifest, remote)) {
-            await installCloudBook(remote, (phase, completedResources, totalResources, currentResourcePath) => {
-              publishProgress({ phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
-            });
-            downloaded.push(bookId);
+            if (local && overwrite) {
+              await uploadLocalBook(local, remote, (phase, completedResources, totalResources, currentResourcePath) => {
+                publishProgress({ phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
+              });
+              uploaded.push(bookId);
+            } else {
+              await installCloudBook(remote, (phase, completedResources, totalResources, currentResourcePath) => {
+                publishProgress({ phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
+              });
+              downloaded.push(bookId);
+            }
           }
-          const totalResources = remote.resources.length;
+          const totalResources = overwrite && local ? local.files.length : remote.resources.length;
           await deps.library.patchEntry(bookId, { lastSyncedAt: new Date().toISOString() });
           progress = { ...progress, completedBooks: 1 };
           publishProgress({ phase: 'complete', completedResources: totalResources, totalResources, currentResourcePath: undefined });
@@ -243,8 +264,8 @@ export function createSyncService(deps: SyncServiceDeps) {
     return { uploadedBookIds: uploaded, downloadedBookIds: downloaded, failedBookIds: next.failedBookIds, status: next };
   };
 
-  const syncBook = (bookId: string): Promise<SyncSummary> => {
-    const next = queue.then(() => run(bookId), () => run(bookId));
+  const syncBook = (bookId: string, overwrite = false): Promise<SyncSummary> => {
+    const next = queue.then(() => run(bookId, overwrite), () => run(bookId, overwrite));
     queue = next.catch(() => emptySummary(status));
     return next;
   };
