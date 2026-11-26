@@ -184,6 +184,9 @@ export const en = {
     exportDone: 'Export complete',
     exportWhere: 'Saved to this folder on your Mac — the file is already open in Finder:',
     exportPartial: (n: number) => `${n} station${n === 1 ? '' : 's'} without audio were skipped and are not in this file.`,
+    syncBook: 'Sync this book',
+    syncing: 'Syncing…',
+    neverSynced: 'Not synced yet',
     rename: 'Rename',
     renameAria: (title: string) => `Rename ${title}`,
     renaming: 'Renaming…',
@@ -384,7 +387,7 @@ export const en = {
     },
     sync: {
       title: 'Cloud sync',
-      hint: 'Sync book decks, audio and reading data to your Cloudflare Worker. Chapters stay on this computer.',
+      hint: 'Configure Cloudflare here, then sync books individually from each shelf book’s menu. Chapter text and audio stay local.',
       workerUrl: 'Worker URL',
       workerUrlPlaceholder: 'https://your-worker.example.workers.dev',
       configure: 'Configure',

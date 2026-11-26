@@ -65,6 +65,15 @@ describe('normalizeEntry', () => {
     };
     expect(normalizeEntry(fresh)).toMatchObject({ complete: false, built: 3 });
   });
+
+  test('preserves the local sync timestamp', () => {
+    const entry = normalizeEntry({
+      id: 'a', title: 'A', stations: 12, minutes: 40,
+      budgetId: 'solid', generatedAt: '2026-01-01T00:00:00.000Z',
+      lastSyncedAt: '2026-11-26T00:00:00.000Z',
+    });
+    expect(entry.lastSyncedAt).toBe('2026-11-26T00:00:00.000Z');
+  });
 });
 
 describe('isBookId', () => {

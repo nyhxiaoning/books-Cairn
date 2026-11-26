@@ -35,7 +35,7 @@ const shell: ShellSettings = {
     configure: async () => undefined,
     login: async () => {},
     logout: async () => {},
-    syncNow: async () => {},
+    syncBook: async () => {},
   },
 };
 
@@ -43,13 +43,13 @@ const render = (value: ShellSettings | undefined): string => renderToStaticMarku
   createElement(SettingsProvider, null, createElement(SyncPage, { shell: value })),
 );
 
-test('sync page exposes configuration, login and retry controls', () => {
+test('sync page exposes configuration and login controls without a global sync button', () => {
   const html = render(shell);
   expect(html).toContain('Worker URL');
   expect(html).toContain('Username');
   expect(html).toContain('Password');
   expect(html).toContain('Log in');
-  expect(html).toContain('Sync now');
+  expect(html).not.toContain('Sync now');
   expect(html).toContain('Last successful sync:');
   expect(html).toContain('2/18');
   expect(html).toContain('测试书');

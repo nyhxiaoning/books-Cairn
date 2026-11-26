@@ -172,6 +172,9 @@ export const zh: Messages = {
     exportDone: '导出完成',
     exportWhere: '文件已保存到 Mac 上这个文件夹，并已在访达中打开：',
     exportPartial: (n: number) => `有 ${n} 个站点还没有音频，未包含在本次导出中。`,
+    syncBook: '同步这本书',
+    syncing: '同步中…',
+    neverSynced: '尚未同步',
     rename: '重命名',
     renameAria: (title: string) => `重命名 ${title}`,
     renaming: '正在重命名…',
@@ -372,7 +375,7 @@ export const zh: Messages = {
     },
     sync: {
       title: '云端同步',
-      hint: '将书籍站点、音频和阅读进度同步到 Cloudflare Worker。章节正文只保留在本机。',
+      hint: '在这里配置 Cloudflare，然后从书架每本书的菜单单独同步。章节正文和音频只保留在本机。',
       workerUrl: 'Worker 地址',
       workerUrlPlaceholder: 'https://your-worker.example.workers.dev',
       configure: '配置',

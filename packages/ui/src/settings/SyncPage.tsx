@@ -74,8 +74,6 @@ export function SyncPage({ shell }: { shell?: ShellSettings }): ReactElement {
     }, t.settings.sync.loggedIn);
   };
 
-  const syncNow = (): void => void run(shell.sync.syncNow, '');
-
   return (
     <Section title={t.settings.sync.title}>
       <p className="set-hint">{t.settings.sync.hint}</p>
@@ -142,15 +140,9 @@ export function SyncPage({ shell }: { shell?: ShellSettings }): ReactElement {
 
       <div className="set-row">
         <span className="set-control set-confirm">
-          <button type="button" className="set-btn primary" disabled={busy || !workerUrl.trim()} onClick={syncNow}>
-            {busy && shell.sync.status.state === 'syncing' ? t.settings.sync.syncing : t.settings.sync.syncNow}
-          </button>
           <button type="button" className="set-btn" disabled={busy} onClick={() => void run(shell.sync.logout, t.settings.sync.loggedOut)}>
             {t.settings.sync.logout}
           </button>
-          {shell.sync.status.state === 'error' && (
-            <button type="button" className="set-btn" disabled={busy} onClick={syncNow}>{t.settings.sync.retry}</button>
-          )}
         </span>
       </div>
 

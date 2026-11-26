@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useT, type ShellPrefs, type ShellSettings, type VoiceOption } from '@cairn/ui';
 import {
   clearCache, dataDir, devBuild, getSettings, getSyncSettings, inShell, modelStatus, previewVoice,
-  revealDataDir, setSettings, onSyncStatus, syncConfigure, syncLogin, syncLogout, syncNow,
+  revealDataDir, setSettings, onSyncStatus, syncConfigure, syncLogin, syncLogout, syncBook,
   syncStatus as getSyncStatus,
 } from './bridge';
 import type { SyncStatus } from './shared/schema';
@@ -198,7 +198,7 @@ export function useShellSettings(): ShellSettings | undefined {
           setSyncConfig((current) => ({ ...current, enabled: true, username }));
         },
         logout: syncLogout,
-        syncNow: async () => { await syncNow(); },
+        syncBook: async (bookId: string) => { await syncBook(bookId); },
       },
     } satisfies ShellSettings;
   }, [values, setPref, setProvider, voicesFor, recheckModel, model, audition, previewing, dir, dev, sync, syncConfig]);

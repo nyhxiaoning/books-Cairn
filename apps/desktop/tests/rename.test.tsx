@@ -14,10 +14,11 @@ interface Shelf {
   readonly window: Window;
   readonly host: HTMLDivElement;
   readonly renamed: readonly { id: string; title: string }[];
+  readonly synced: readonly string[];
   close(): void;
 }
 
-function mount(renameBook: (bookId: string, title: string) => Promise<LibraryEntry>): Shelf {
+function mount(renameBook: (bookId: string, title: string) => Promise<LibraryEntry>, onSyncBook?: (bookId: string) => Promise<void>): Shelf {
   const window = new Window({ url: 'http://localhost/' });
   Object.assign(globalThis, {
     window, document: window.document, Node: window.Node,
@@ -30,6 +31,7 @@ function mount(renameBook: (bookId: string, title: string) => Promise<LibraryEnt
   window.document.body.append(host);
   const root = createRoot(host);
   const renamed: { id: string; title: string }[] = [];
+  const synced: string[] = [];
 
   act(() => root.render(
     <SettingsProvider storageKey="rename-test">
@@ -40,6 +42,7 @@ function mount(renameBook: (bookId: string, title: string) => Promise<LibraryEnt
         onOpen={() => undefined}
         onSettings={() => undefined}
         onRenamed={(entry) => renamed.push({ id: entry.id, title: entry.title })}
+        onSyncBook={async (bookId) => { synced.push(bookId); await onSyncBook?.(bookId); }}
         {...{ renameBook }}
       />
     </SettingsProvider>,
@@ -49,7 +52,7 @@ function mount(renameBook: (bookId: string, title: string) => Promise<LibraryEnt
   // asserts the UI flow and the commit path via onRenamed only in the
   // handler-level test. This file covers the interaction: menu -> input -> Enter.
   void renameBook;
-  return { window, host, renamed, close: () => act(() => root.unmount()) };
+  return { window, host, renamed, synced, close: () => act(() => root.unmount()) };
 }
 
 function click(shelf: Shelf, element: Element): void {
@@ -96,6 +99,23 @@ describe('shelf rename', () => {
       key(shelf, 'Escape');
       expect(shelf.host.querySelector('.shelf-rename-input')).toBeNull();
       expect(shelf.host.textContent).toContain('Thinking, Fast and Slow');
+    } finally {
+      shelf.close();
+    }
+  });
+
+  test('book menu syncs only the selected book and shows its local sync state', () => {
+    const shelf = mount(async (bookId, title) => ({ ...books[0], id: bookId, title }));
+    try {
+      expect(shelf.host.textContent).toContain('Not synced yet');
+      const more = shelf.host.querySelector('.shelf-more');
+      if (!(more instanceof shelf.window.HTMLButtonElement)) throw new Error('Missing more button');
+      click(shelf, more);
+      const syncItem = [...shelf.host.querySelectorAll('.shelf-menu-item')]
+        .find((item) => item.textContent === 'Sync this book');
+      if (!syncItem) throw new Error('Missing sync item');
+      click(shelf, syncItem);
+      expect(shelf.synced).toEqual(['thinking']);
     } finally {
       shelf.close();
     }

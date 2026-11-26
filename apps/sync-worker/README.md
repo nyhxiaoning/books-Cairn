@@ -108,9 +108,10 @@ bun run sync-worker:verify --dry-run
 
 ## Operational rules
 
-- The desktop app talks to this Worker URL, never directly to D1 or R2.
+- The desktop app talks to this Worker URL, never directly to D1 or R2. Sync is
+  manually started for one shelf book at a time; there is no automatic whole-shelf sync.
 - Login automatically pulls the latest cloud manifest; book generation and
-  completed decks enqueue background sync.
+  completed decks do not enqueue background sync; use the shelf action to sync one book.
 - Cloud versions win on conflict. A failed upload or download leaves the local
   book playable and is shown as a retryable sync failure.
 - Only generated playback resources are synchronized. `chapters.json` remains

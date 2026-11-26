@@ -113,7 +113,6 @@ export function createHandlers({
         });
         // A new mapped book may complete candidates in existing universes.
         await universe.relink().catch(quietly('universe relink failed', undefined));
-        void sync?.syncNow().catch((cause) => console.error('book sync failed', cause));
         return entry;
       } finally {
         latest = undefined;
@@ -385,9 +384,10 @@ export function createHandlers({
       return null;
     },
 
-    async syncNow() {
+    async syncBook(params: { bookId: string }) {
       if (!sync) throw new Error('sync_unavailable');
-      return sync.syncNow();
+      if (!isBookId(params.bookId)) throw new Error('invalid_book_id');
+      return sync.syncBook(params.bookId);
     },
 
     async syncStatus() {

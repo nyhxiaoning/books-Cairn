@@ -87,7 +87,11 @@ bunx wrangler d1 migrations apply cairn-sync --remote \
 bunx wrangler deploy --config apps/sync-worker/wrangler.jsonc
 ```
 
-Use the URL Wrangler reports as the desktop Worker URL. The verification script
+Use the URL Wrangler reports as the desktop Worker URL. Sync is manual and per
+book: use the book's shelf menu to sync one book at a time. Startup, login,
+generation, and deck completion do not trigger a whole-shelf sync. The latest
+successful time is kept in that book's local library entry and is not uploaded.
+The verification script
 requires these environment variables:
 
 ```text

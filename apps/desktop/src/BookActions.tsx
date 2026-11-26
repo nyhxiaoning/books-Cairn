@@ -4,7 +4,7 @@ import { errorText, useT } from '@cairn/ui';
 import { payloadOf } from '@cairn/core/errors';
 
 export function BookActions({
-  bookId, title, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onRename, onDelete,
+  bookId, title, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onRename, onDelete, onSync, syncing,
 }: {
   bookId: string;
   title: string;
@@ -16,6 +16,8 @@ export function BookActions({
   /** Put the row into inline rename; Home owns the editing state. */
   onRename?: (bookId: string) => void;
   onDelete?: (bookId: string) => Promise<void>;
+  onSync?: (bookId: string) => Promise<void>;
+  syncing?: boolean;
 }): ReactElement {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -33,7 +35,8 @@ export function BookActions({
     if (restoreFocus) trigger.current?.focus();
   }, []);
 
-  const actions = [
+  const actions: Array<{ label: string; run: () => void; danger?: boolean; disabled?: boolean }> = [
+    ...(onSync ? [{ label: syncing ? t.home.syncing : t.home.syncBook, run: () => { void onSync(bookId).catch((cause) => console.error('book sync failed', cause)); }, disabled: syncing }] : []),
     ...(onDetails ? [{ label: t.home.bookDetails, run: () => onDetails(bookId) }] : []),
     ...(onBuildUniverse ? [{ label: t.home.buildUniverse, run: () => onBuildUniverse(bookId) }] : []),
     ...(onEditCatalog ? [{ label: t.home.editCatalog, run: () => onEditCatalog(bookId) }] : []),
@@ -85,6 +88,7 @@ export function BookActions({
       const index = items.current.findIndex((item) => item === event.target);
       if (index < 0) return;
       event.preventDefault();
+      if (actions[index]?.disabled) return;
       actions[index]?.run();
       close(false);
     }
@@ -142,6 +146,7 @@ export function BookActions({
               role="menuitem"
               tabIndex={index === active ? 0 : -1}
               className={['shelf-menu-item', index === active ? 'active' : '', action.danger ? 'danger' : ''].filter(Boolean).join(' ')}
+              disabled={action.disabled}
               onFocus={() => setActive(index)}
               onMouseEnter={() => focus(index)}
               onClick={(event) => {

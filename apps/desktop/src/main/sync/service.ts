@@ -1,4 +1,5 @@
 import { installSyncBook, exportSyncBook, type SyncBundle, type SyncBundleFile } from '@cairn/core/sync/local';
+import { isBookId, type LibraryEntry } from '@cairn/core/store/library';
 import type { Library } from '@cairn/core/store/library-disk';
 import { isSyncablePath, type SyncFile, type SyncManifest } from '@cairn/core/sync/manifest';
 import { createHash } from 'node:crypto';
@@ -142,18 +143,19 @@ export function createSyncService(deps: SyncServiceDeps) {
     }
   };
 
-  const run = async (): Promise<SyncSummary> => {
+  const run = async (bookId: string): Promise<SyncSummary> => {
     if (!client || !(await deps.sessionStore.read())) {
       const next = publish({ state: 'disabled', failedBookIds: [] });
       return emptySummary(next);
     }
+    if (!isBookId(bookId)) throw new Error('invalid_book_id');
     publish({ state: 'syncing', failedBookIds: [] });
     const uploaded: string[] = [];
     const downloaded: string[] = [];
     const failed: string[] = [];
     let message: string | undefined;
     let progress: SyncProgress = {
-      totalBooks: 0, completedBooks: 0, currentBookIndex: 0, currentBookId: '', currentBookTitle: '',
+      totalBooks: 1, completedBooks: 0, currentBookIndex: 1, currentBookId: bookId, currentBookTitle: '',
       phase: 'manifest', completedResources: 0, totalResources: 0,
     };
     const publishProgress = (patch: Partial<SyncProgress>): void => {
@@ -165,69 +167,67 @@ export function createSyncService(deps: SyncServiceDeps) {
       const cloud = await configuredClient().fetchManifest();
       const remoteBooks = cloud.books.map(syncManifest);
       const localEntries = await deps.library.list();
-      const localIds = new Set(localEntries.map((entry) => entry.id));
-      const cloudById = new Map(remoteBooks.map((book) => [book.bookId, book]));
-      const bookIds = new Set([...remoteBooks.map((book) => book.bookId), ...localEntries.map((entry) => entry.id)]);
-      progress = { ...progress, totalBooks: bookIds.size };
-      let bookIndex = 0;
+      const localEntry: LibraryEntry | undefined = localEntries.find((entry) => entry.id === bookId);
+      const remote = remoteBooks.find((book) => book.bookId === bookId);
+      if (!localEntry && !remote) throw new Error('book_not_found');
 
-      for (const remote of remoteBooks) {
-        bookIndex += 1;
-        try {
-          publishProgress({
-            currentBookIndex: bookIndex, currentBookId: remote.bookId, currentBookTitle: remote.title,
-            phase: 'downloading', completedResources: 0, totalResources: remote.resources.length,
-          });
-          const local = localIds.has(remote.bookId) ? await exportSyncBook(deps.library, remote.bookId) : undefined;
+      try {
+        publishProgress({
+          currentBookTitle: remote?.title ?? localEntry?.title ?? '',
+          phase: remote ? 'downloading' : 'manifest',
+          completedResources: 0,
+          totalResources: remote?.resources.length ?? 0,
+          currentResourcePath: undefined,
+        });
+        const local = localEntry ? await exportSyncBook(deps.library, bookId) : undefined;
+        if (remote) {
           if (!local || !sameManifest(local.manifest, remote)) {
             await installCloudBook(remote, (phase, completedResources, totalResources, currentResourcePath) => {
               publishProgress({ phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
             });
-            downloaded.push(remote.bookId);
+            downloaded.push(bookId);
           }
-          progress = { ...progress, completedBooks: progress.completedBooks + 1 };
-          publishProgress({ completedBooks: progress.completedBooks, phase: 'complete', completedResources: remote.resources.length, totalResources: remote.resources.length, currentResourcePath: undefined });
-        } catch (cause) {
-          failed.push(remote.bookId);
-          message ??= errorMessage(cause);
-          publishProgress({ phase: progress.phase });
-        }
-      }
-      for (const entry of localEntries) {
-        if (cloudById.has(entry.id)) continue;
-        bookIndex += 1;
-        try {
-          const local = await exportSyncBook(deps.library, entry.id);
-          publishProgress({
-            currentBookIndex: bookIndex, currentBookId: entry.id, currentBookTitle: entry.title,
-            phase: 'manifest', completedResources: 0, totalResources: local.files.length, currentResourcePath: undefined,
-          });
+          const totalResources = remote.resources.length;
+          await deps.library.patchEntry(bookId, { lastSyncedAt: new Date().toISOString() });
+          progress = { ...progress, completedBooks: 1 };
+          publishProgress({ phase: 'complete', completedResources: totalResources, totalResources, currentResourcePath: undefined });
+        } else if (local) {
+          publishProgress({ currentBookTitle: local.manifest.title, phase: 'manifest', totalResources: local.files.length });
           await uploadLocalBook(local, undefined, (phase, completedResources, totalResources, currentResourcePath) => {
             publishProgress({ phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
           });
-          uploaded.push(entry.id);
-          progress = { ...progress, completedBooks: progress.completedBooks + 1 };
-          publishProgress({ completedBooks: progress.completedBooks, phase: 'complete', completedResources: local.files.length, totalResources: local.files.length, currentResourcePath: undefined });
-        } catch (cause) {
-          // A second desktop may have created the book between the manifest
-          // read and the mutation. Re-read once and let the cloud win.
+          uploaded.push(bookId);
+          await deps.library.patchEntry(bookId, { lastSyncedAt: new Date().toISOString() });
+          progress = { ...progress, completedBooks: 1 };
+          publishProgress({ phase: 'complete', completedResources: local.files.length, totalResources: local.files.length, currentResourcePath: undefined });
+        }
+      } catch (cause) {
+        // A second desktop may have created the book between the manifest
+        // read and the mutation. Re-read once and let the cloud win.
+        let recovered = false;
+        if (localEntry && !remote) {
           try {
-            const afterConflict = (await configuredClient().fetchManifest()).books.find((book) => book.bookId === entry.id);
+            const afterConflict = (await configuredClient().fetchManifest()).books.find((book) => book.bookId === bookId);
             if (afterConflict) {
-              const remote = syncManifest(afterConflict);
-              await installCloudBook(remote, (phase, completedResources, totalResources, currentResourcePath) => {
-                publishProgress({ phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
+              const conflictRemote = syncManifest(afterConflict);
+              await installCloudBook(conflictRemote, (phase, completedResources, totalResources, currentResourcePath) => {
+                publishProgress({ currentBookTitle: conflictRemote.title, phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
               });
-              downloaded.push(entry.id);
-              progress = { ...progress, completedBooks: progress.completedBooks + 1 };
-              publishProgress({ completedBooks: progress.completedBooks, phase: 'complete', completedResources: remote.resources.length, totalResources: remote.resources.length, currentResourcePath: undefined });
-              continue;
+              downloaded.push(bookId);
+              await deps.library.patchEntry(bookId, { lastSyncedAt: new Date().toISOString() });
+              progress = { ...progress, completedBooks: 1 };
+              publishProgress({ phase: 'complete', completedResources: conflictRemote.resources.length, totalResources: conflictRemote.resources.length, currentResourcePath: undefined });
+              message = undefined;
+              recovered = true;
             }
           } catch (retryCause) {
             message ??= errorMessage(retryCause);
           }
-          failed.push(entry.id);
+        }
+        if (!recovered) {
+          failed.push(bookId);
           message ??= errorMessage(cause);
+          publishProgress({ phase: progress.phase });
         }
       }
     } catch (cause) {
@@ -243,8 +243,8 @@ export function createSyncService(deps: SyncServiceDeps) {
     return { uploadedBookIds: uploaded, downloadedBookIds: downloaded, failedBookIds: next.failedBookIds, status: next };
   };
 
-  const syncNow = (): Promise<SyncSummary> => {
-    const next = queue.then(run, run);
+  const syncBook = (bookId: string): Promise<SyncSummary> => {
+    const next = queue.then(() => run(bookId), () => run(bookId));
     queue = next.catch(() => emptySummary(status));
     return next;
   };
@@ -267,7 +267,6 @@ export function createSyncService(deps: SyncServiceDeps) {
       const session: SessionInfo = await configuredClient().login({ username, password });
       await deps.writeSyncSettings?.({ username });
       account = { authenticated: true, expiresAt: session.expiresAt };
-      void syncNow().catch((cause) => console.error('background sync after login failed', cause));
       return account;
     },
     async logout(): Promise<void> {
@@ -281,7 +280,7 @@ export function createSyncService(deps: SyncServiceDeps) {
         publish({ state: 'disabled', failedBookIds: [] });
       }
     },
-    syncNow,
+    syncBook,
     status: (): SyncStatus => status,
     account: (): AccountStatus => account,
   };

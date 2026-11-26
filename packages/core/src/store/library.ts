@@ -65,6 +65,8 @@ export interface LibraryEntry {
    */
   readonly language?: ContentLocale;
   readonly voice?: string;
+  /** Last successful cloud sync for this book on this device. */
+  readonly lastSyncedAt?: string;
   /** Recorded so a half-built path of notes resumes speaking of notes. Absent means a book. */
   readonly kind?: SourceKind;
 }

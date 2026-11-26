@@ -105,7 +105,7 @@ export type BunSchema = RPCSchema<{
     syncLogin: { params: { username: string; password: string }; response: AccountStatus };
     syncConfigure: { params: { workerUrl: string }; response: SyncStatus };
     syncLogout: { params: void; response: null };
-    syncNow: { params: void; response: SyncSummary };
+    syncBook: { params: { bookId: string }; response: SyncSummary };
     syncStatus: { params: void; response: SyncStatus };
     /**
      * The menu bar is drawn by the OS, so its words cannot come from the

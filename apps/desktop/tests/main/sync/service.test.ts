@@ -33,13 +33,20 @@ const setup = (entries: readonly LibraryEntry[], localFiles: ReadonlyMap<string,
   const installed: string[] = [];
   const uploaded: string[] = [];
   const emitted: SyncStatus[] = [];
+  let currentEntries = [...entries];
   const logoutCalls = { value: 0 };
   const clearCalls = { value: 0 };
   const library = {
     root: '/tmp/cairn-test',
-    list: async () => entries,
+    list: async () => currentEntries,
     readSyncFiles: async (bookId: string) => localFiles.get(bookId) ?? [],
-    installSyncFiles: async (bookId: string) => { installed.push(bookId); return entries.find((item) => item.id === bookId) ?? entry(bookId, 'cloud'); },
+    installSyncFiles: async (bookId: string) => { installed.push(bookId); return currentEntries.find((item) => item.id === bookId) ?? entry(bookId, 'cloud'); },
+    patchEntry: async (bookId: string, patch: Partial<LibraryEntry>) => {
+      const index = currentEntries.findIndex((item) => item.id === bookId);
+      if (index < 0) return undefined;
+      currentEntries[index] = { ...currentEntries[index], ...patch };
+      return currentEntries[index];
+    },
   } as unknown as Library;
   const client: CloudSyncClient = {
     login: async () => session,
@@ -66,7 +73,7 @@ const setup = (entries: readonly LibraryEntry[], localFiles: ReadonlyMap<string,
     fetcher,
     emit: (status) => { emitted.push(status); },
   });
-  return { service, installed, uploaded, emitted, settingsWrites, logoutCalls, clearCalls };
+  return { service, installed, uploaded, emitted, settingsWrites, logoutCalls, clearCalls, entries: currentEntries };
 };
 
 test('configures a fresh service before login without persisting the password', async () => {
@@ -94,12 +101,25 @@ test('revokes the cloud session when possible but always clears local authentica
 test('uploads a local-only book without failing local operation', async () => {
   const local = filesFor('new');
   const { service, uploaded, emitted } = setup([entry('book-new', 'New')], new Map([['book-new', local]]), { books: [] });
-  const result = await service.syncNow();
+  const result = await service.syncBook('book-new');
   expect(result.uploadedBookIds).toEqual(['book-new']);
   expect(uploaded).toEqual(['book-new:path.json', 'book-new:decks/index.json']);
   expect(result.status.state).toBe('success');
   expect(emitted.some((status) => status.progress?.phase === 'uploading' && status.progress.currentResourcePath === 'path.json')).toBe(true);
   expect(result.status.progress).toMatchObject({ totalBooks: 1, completedBooks: 1, currentBookIndex: 1, currentBookTitle: 'New', phase: 'complete', completedResources: 2, totalResources: 2 });
+});
+
+test('syncs only the selected local book and records its timestamp', async () => {
+  const first = entry('book-new', 'New');
+  const second = entry('book-other', 'Other');
+  const { service, uploaded, entries } = setup(
+    [first, second], new Map([['book-new', filesFor('new')], ['book-other', filesFor('other')]]), { books: [] },
+  );
+  const result = await service.syncBook('book-new');
+  expect(result.uploadedBookIds).toEqual(['book-new']);
+  expect(uploaded.every((path) => path.startsWith('book-new:'))).toBe(true);
+  expect(entries[0]?.lastSyncedAt).toBeString();
+  expect(entries[1]?.lastSyncedAt).toBeUndefined();
 });
 
 test('downloads a cloud-only book and installs it atomically through the library API', async () => {
@@ -109,7 +129,7 @@ test('downloads a cloud-only book and installs it atomically through the library
     resources: local.map((file) => ({ path: file.path, contentType: 'application/json', byteSize: bytes(`download:${file.path}`).byteLength, contentHash: hash(bytes(`download:${file.path}`)) })),
   };
   const { service, installed, emitted } = setup([], new Map(), { books: [manifest] });
-  const result = await service.syncNow();
+  const result = await service.syncBook('book-cloud');
   expect(result.downloadedBookIds).toEqual(['book-cloud']);
   expect(installed).toEqual(['book-cloud']);
   expect(emitted.some((status) => status.progress?.phase === 'downloading' && status.progress.currentResourcePath === 'path.json')).toBe(true);
@@ -124,7 +144,7 @@ test('prefers the cloud version when both sides contain a changed book', async (
     resources: remoteFiles.map((file) => ({ path: file.path, contentType: 'application/json', byteSize: bytes(`download:${file.path}`).byteLength, contentHash: hash(bytes(`download:${file.path}`)) })),
   };
   const { service, installed } = setup([entry('book-one', 'Local title')], new Map([['book-one', local]]), { books: [manifest] });
-  await service.syncNow();
+  await service.syncBook('book-one');
   expect(installed).toEqual(['book-one']);
 });
 
@@ -135,7 +155,7 @@ test('keeps local playback available when a cloud transfer fails', async () => {
     resources: local.map((file) => ({ path: file.path, contentType: 'application/json', byteSize: 1, contentHash: '0'.repeat(64) })),
   };
   const setupResult = setup([entry('book-one', 'Local title')], new Map([['book-one', local]]), { books: [manifest] });
-  const result = await setupResult.service.syncNow();
+  const result = await setupResult.service.syncBook('book-one');
   expect(result.failedBookIds).toEqual(['book-one']);
   expect(setupResult.installed).toEqual([]);
   expect(result.status.state).toBe('error');

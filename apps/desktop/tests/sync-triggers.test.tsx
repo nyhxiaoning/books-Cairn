@@ -11,14 +11,14 @@ const book: LibraryEntry = {
 };
 
 let deckStatus: ((status: { bookId: string; total: number; ready: number; failed: number; complete: boolean }) => void) | undefined;
-let syncCalls = 0;
+let syncBookCalls = 0;
 
 mock.module('../src/bridge', () => ({
   inShell: true,
   libraryBase: async () => '.',
   listBooks: async () => [book],
   getCatalog: async () => ({ version: 1, records: {} }),
-  syncNow: async () => { syncCalls += 1; return { uploadedBookIds: [], downloadedBookIds: [], failedBookIds: [], status: { state: 'success', failedBookIds: [] } }; },
+  syncBook: async () => { syncBookCalls += 1; return { uploadedBookIds: [], downloadedBookIds: [], failedBookIds: [], status: { state: 'success', failedBookIds: [] } }; },
   onDeckStatus: (listener: typeof deckStatus) => { deckStatus = listener; return () => { deckStatus = undefined; }; },
   onCompanionEvent: () => () => undefined,
   onOpenSettings: () => () => undefined,
@@ -67,8 +67,8 @@ mock.module('../src/bridge', () => ({
 const { App } = await import('../src/App');
 
 async function mount(): Promise<{ readonly root: Root; close(): void }> {
-  syncCalls = 0;
   deckStatus = undefined;
+  syncBookCalls = 0;
   const window = new Window({ url: 'http://localhost/' });
   Object.assign(globalThis, {
     window, document: window.document, Node: window.Node, HTMLElement: window.HTMLElement,
@@ -83,21 +83,21 @@ async function mount(): Promise<{ readonly root: Root; close(): void }> {
   return { root, close: () => act(() => root.unmount()) };
 }
 
-test('starts sync after the shelf loads without waiting for it', async () => {
+test('does not sync after the shelf loads', async () => {
   const mounted = await mount();
   try {
-    expect(syncCalls).toBe(1);
+    expect(syncBookCalls).toBe(0);
   } finally {
     mounted.close();
   }
 });
 
-test('queues sync when a deck becomes ready', async () => {
+test('does not sync when a deck becomes ready', async () => {
   const mounted = await mount();
   try {
     expect(deckStatus).toBeDefined();
     await act(async () => deckStatus?.({ bookId: book.id, total: 1, ready: 1, failed: 0, complete: true }));
-    expect(syncCalls).toBe(2);
+    expect(syncBookCalls).toBe(0);
   } finally {
     mounted.close();
   }

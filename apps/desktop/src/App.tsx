@@ -20,7 +20,7 @@ import {
   suggestCatalogFor, patchCatalog, wereadStart,
   universeBuild, universeGet, universePatch,
   exportAudio, exportSlides,
-  syncNow,
+  syncBook,
 } from './bridge';
 import { shortcuts } from './shortcut';
 import { loadBundle, useBundle } from './useBundle';
@@ -79,7 +79,6 @@ export function App(): ReactElement {
         getCatalog().catch(() => emptyCatalog()),
       ]);
       setBooks(shelf);
-      if (inShell) void syncNow().catch((cause) => console.error('startup sync failed', cause));
       setCatalog(organization);
       // Reopen whatever was being read, if it is still on the shelf. A path is
       // walked over several sittings; landing on the drop zone every launch
@@ -105,7 +104,6 @@ export function App(): ReactElement {
     setBooks((list) => list.map(
       (b) => (b.id === s.bookId ? { ...b, built: s.ready, complete: s.complete } : b),
     ));
-    if (inShell) void syncNow().catch((cause) => console.error('deck sync failed', cause));
   }), []);
 
   useEffect(() => {
@@ -417,7 +415,7 @@ export function App(): ReactElement {
   if (!bookId) {
     return (
       <div className="shell empty">
-        {shell && <ShelfSyncStatus shell={shell} onRetry={() => void syncNow().catch((cause) => console.error('shelf sync failed', cause))} />}
+        {shell && <ShelfSyncStatus shell={shell} />}
         <Home
           books={books}
           catalog={catalog}
@@ -427,6 +425,10 @@ export function App(): ReactElement {
           onDetails={openDetails}
           onEditCatalog={(id) => { openDetails(id); setEditingCatalog(id); }}
           onBuildUniverse={(id) => openDetails(id, 'universe')}
+          {...(inShell ? { onSyncBook: async (id: string) => {
+            await syncBook(id);
+            setBooks(await listBooks());
+          }, syncingBookId: shell?.sync.status.state === 'syncing' ? shell.sync.status.progress?.currentBookId : undefined } : {})}
           onRenamed={(entry) => setBooks((list) => list.map((b) => (b.id === entry.id ? entry : b)))}
           {...(inShell ? {
             onExportAudio: (id: string) => { exportBookAudio(id).catch((cause: unknown) => {
@@ -559,9 +561,8 @@ export function App(): ReactElement {
   );
 }
 
-function ShelfSyncStatus({ shell, onRetry }: {
+function ShelfSyncStatus({ shell }: {
   shell: NonNullable<ReturnType<typeof useShellSettings>>;
-  onRetry: () => void;
 }): ReactElement | null {
   const { t } = useUi();
   const status = shell.sync.status;
@@ -577,7 +578,6 @@ function ShelfSyncStatus({ shell, onRetry }: {
     <div className="shelf-sync-status" role="status">
       <span>{status.message ?? label}</span>
       {status.lastSuccessAt && <span> · {t.settings.sync.lastSuccess(new Date(status.lastSuccessAt).toLocaleString())}</span>}
-      {status.state === 'error' && <button type="button" className="set-btn" onClick={onRetry}>{t.settings.sync.retry}</button>}
     </div>
   );
 }

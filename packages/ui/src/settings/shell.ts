@@ -111,7 +111,7 @@ export interface SyncSettings {
   readonly configure: (workerUrl: string) => Promise<SyncStatusView | undefined>;
   readonly login: (username: string, password: string) => Promise<void>;
   readonly logout: () => Promise<void>;
-  readonly syncNow: () => Promise<void>;
+  readonly syncBook: (bookId: string) => Promise<void>;
 }
 
 export interface ShellSettings {

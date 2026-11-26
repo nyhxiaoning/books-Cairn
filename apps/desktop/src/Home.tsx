@@ -20,7 +20,7 @@ import { shortcuts } from './shortcut';
  * shelf below it is for walking a path again, and nothing opens until it is picked.
  */
 export function Home({
-  books, catalog, base, onAdd, onOpen, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onRenamed, onDelete, onSettings,
+  books, catalog, base, onAdd, onOpen, onDetails, onEditCatalog, onBuildUniverse, onExportAudio, onExportSlides, onRenamed, onDelete, onSettings, onSyncBook, syncingBookId,
 }: {
   books: readonly LibraryEntry[];
   catalog: CatalogFile;
@@ -37,6 +37,8 @@ export function Home({
   onRenamed?: (entry: LibraryEntry) => void;
   /** Absent outside the desktop shell, where there is no main process to delete with. */
   onDelete?: (bookId: string) => Promise<void>;
+  onSyncBook?: (bookId: string) => Promise<void>;
+  syncingBookId?: string;
   onSettings: () => void;
 }): ReactElement {
   const t = useT();
@@ -148,6 +150,7 @@ export function Home({
                 {...(onExportSlides ? { onExportSlides } : {})}
                 {...(onRenamed ? { onRename: setRenaming } : {})}
                 {...(onDelete ? { onDelete } : {})}
+                {...(onSyncBook ? { onSync: onSyncBook, syncing: syncingBookId === b.id } : {})}
               />
             </div>
           ))}
@@ -237,7 +240,13 @@ function ShelfText({ book: b, meta, base }: {
           {meta?.rating !== undefined ? ` · ${t.home.rating(meta.rating)}` : ''}
         </span>
         {meta?.intro && <span className="shelf-intro">{meta.intro}</span>}
+        <span className="shelf-meta">{b.lastSyncedAt ? t.settings.sync.lastSuccess(formatDate(b.lastSyncedAt)) : t.home.neverSynced}</span>
       </span>
     </>
   );
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? value : date.toLocaleString();
 }
