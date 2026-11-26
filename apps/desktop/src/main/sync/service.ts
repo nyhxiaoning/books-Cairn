@@ -1,6 +1,6 @@
 import { installSyncBook, exportSyncBook, type SyncBundle, type SyncBundleFile } from '@cairn/core/sync/local';
 import type { Library } from '@cairn/core/store/library-disk';
-import type { SyncFile, SyncManifest } from '@cairn/core/sync/manifest';
+import { isSyncablePath, type SyncFile, type SyncManifest } from '@cairn/core/sync/manifest';
 import { createHash } from 'node:crypto';
 import { normalizeWorkerUrl, type CloudSyncClient } from './client';
 import type { SessionStore } from './session-store';
@@ -43,7 +43,7 @@ const hash = (bytes: Uint8Array): string => createHash('sha256').update(bytes).d
 
 const syncManifest = (manifest: SyncManifest): SyncManifest => ({
   ...manifest,
-  resources: manifest.resources.filter((resource) => !resource.path.toLowerCase().endsWith('.mp3')),
+  resources: manifest.resources.filter((resource) => isSyncablePath(resource.path)),
 });
 
 const jsonResponse = async (response: Response): Promise<Record<string, unknown>> => {
@@ -105,7 +105,7 @@ export function createSyncService(deps: SyncServiceDeps) {
     onProgress?: (phase: SyncProgressPhase, completedResources: number, totalResources: number, path?: string) => void,
   ): Promise<void> => {
     const files: SyncBundleFile[] = [];
-    const resources = manifest.resources.filter((resource) => !resource.path.toLowerCase().endsWith('.mp3'));
+    const resources = manifest.resources.filter((resource) => isSyncablePath(resource.path));
     for (const [index, resource] of resources.entries()) {
       onProgress?.('downloading', index, resources.length, resource.path);
       const bytes = await configuredClient().downloadResource({ bookId: manifest.bookId, path: resource.path });
