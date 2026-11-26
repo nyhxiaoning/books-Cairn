@@ -136,6 +136,8 @@ export interface ShellSettingsValues {
   readonly chatModel: string;
   readonly narration: NarrationLanguage;
   readonly voices: Readonly<Record<ContentLocale, string>>;
+  /** Whether newly imported books should synthesize MP3 narration. */
+  readonly generateAudio: boolean;
   /** Each is a key, a `$NAME` reference, or empty for none. See `resolveSecret`. */
   readonly wereadKey: string;
   readonly trace: boolean;
@@ -159,6 +161,7 @@ export const DEFAULT_SHELL_SETTINGS: ShellSettingsValues = {
   // From `pipeline/voice.ts`, not a second copy: the terminal path has no
   // settings file and falls back to those, and two lists would drift.
   voices: { en: DEFAULT_VOICES.en, zh: DEFAULT_VOICES.zh },
+  generateAudio: true,
   wereadKey: envRef(KEY_ENV.wereadKey),
   trace: false,
 };
@@ -292,6 +295,7 @@ export function parseSettings(
       en: known('en', voices.en) ?? fallback.voices.en,
       zh: known('zh', voices.zh) ?? fallback.voices.zh,
     },
+    generateAudio: typeof raw.generateAudio === 'boolean' ? raw.generateAudio : fallback.generateAudio,
     wereadKey: str(raw.wereadKey, fallback.wereadKey),
     trace: typeof raw.trace === 'boolean' ? raw.trace : fallback.trace,
   };

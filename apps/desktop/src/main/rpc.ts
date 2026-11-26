@@ -72,6 +72,7 @@ export function createHandlers({
 }: HandlerDeps) {
   /** One reader, one conversation: a second send while a turn runs is refused. */
   let activeChat: { readonly turnId: string; readonly controller: AbortController } | undefined;
+  let activeImport: AbortController | undefined;
 
   /**
    * The last progress of the run in flight. Pushed messages are fire-and-forget:
@@ -94,29 +95,53 @@ export function createHandlers({
     /** Native picker, then a parse-only preview so the budget choice is informed. */
     /** Several files are several notes; `readBook` refuses a mix of notes and books. */
     async pickBook(): Promise<BookPreview | null> {
+      if (activeImport) throw new CairnError('generation_stopped');
+      const controller = new AbortController();
+      activeImport = controller;
       const picked = (await openFileDialog({
         allowedFileTypes: ACCEPTED_EXTENSIONS.map((e) => e.slice(1)).join(','),
         canChooseFiles: true,
         canChooseDirectory: false,
         allowsMultipleSelection: true,
       })).filter((p) => p.length > 0);
-      return picked.length > 0 ? inspect(picked) : null;
+      try {
+        return picked.length > 0 ? await inspect(picked, controller.signal) : null;
+      } catch (cause) {
+        if (controller.signal.aborted) throw new CairnError('cancelled');
+        throw cause;
+      } finally {
+        if (activeImport === controller) activeImport = undefined;
+      }
     },
 
     async generateBook(params: { filePaths: readonly string[]; budgetId: BudgetId }): Promise<LibraryEntry> {
+      if (activeImport) throw new CairnError('generation_stopped');
+      const controller = new AbortController();
+      activeImport = controller;
       latest = { stage: 'map', done: 0, total: 1 };
       try {
-        const book = await readBook(params.filePaths);
+        const settings = await readSettings();
+        const book = await readBook(params.filePaths, controller.signal);
         const { entry } = await books.generate(book, sourceOf(params.filePaths), params.budgetId, (p) => {
           latest = p;
           emit.progress(p);
-        });
+        }, { generateAudio: settings.generateAudio, signal: controller.signal });
         // A new mapped book may complete candidates in existing universes.
         await universe.relink().catch(quietly('universe relink failed', undefined));
         return entry;
+      } catch (cause) {
+        if (controller.signal.aborted) throw new CairnError('cancelled');
+        throw cause;
       } finally {
+        if (activeImport === controller) activeImport = undefined;
         latest = undefined;
       }
+    },
+
+    async cancelGenerateBook(): Promise<boolean> {
+      if (!activeImport) return false;
+      activeImport.abort();
+      return true;
     },
 
     /**

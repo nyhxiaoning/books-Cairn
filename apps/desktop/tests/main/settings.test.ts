@@ -24,6 +24,20 @@ test('persists provider profiles and keys, and an empty field clears one', async
   expect((await readSettings()).wereadKey).toBe('');
 });
 
+test('defaults audio generation on and persists an explicit false', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'cairn-audio-setting-'));
+  try {
+    const store = createSettingsStore(root);
+    expect((await store.read()).generateAudio).toBe(true);
+
+    await store.write({ generateAudio: false });
+    expect((await store.read()).generateAudio).toBe(false);
+    expect(JSON.parse(await readFile(join(root, 'settings.json'), 'utf8')).generateAudio).toBe(false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 /**
  * The reason profiles are keyed by provider rather than by role. The old shape
  * had one key per role, so switching vendors had to drop it; here editing one

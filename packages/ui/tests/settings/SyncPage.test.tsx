@@ -9,6 +9,7 @@ const shell: ShellSettings = {
   prefs: {
     providers: {}, generationProvider: 'openai', chatProvider: 'inherit', chatModel: '',
     narration: 'follow', voices: { en: 'en-US-AndrewNeural', zh: 'zh-CN-YunjianNeural' },
+    generateAudio: true,
     wereadKey: '', trace: false,
   },
   setPref: () => {},

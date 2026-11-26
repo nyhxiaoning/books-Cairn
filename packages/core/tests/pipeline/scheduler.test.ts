@@ -53,6 +53,17 @@ function gated(): {
 const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
 describe('startDeckScheduler', () => {
+  test('passes its cancellation signal into each build', async () => {
+    const controller = new AbortController();
+    let received: AbortSignal | undefined;
+    const s = startDeckScheduler({
+      nodes: nodes(1), store: memoryStore<NodeDeck>(), signal: controller.signal,
+      build: async (_node, signal) => { received = signal; return deck('n0'); },
+    });
+    await s.done;
+    expect(received).toBe(controller.signal);
+  });
+
   test('默认按路径顺序建站', async () => {
     const store = memoryStore<NodeDeck>();
     const s = startDeckScheduler({

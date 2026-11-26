@@ -32,6 +32,10 @@ const deck = (nodeId: string): NodeDeck => ({
   nodeId, slides: [], narration: [], audioPath: `/x/${nodeId}.mp3`, durationMs: 120_000,
 });
 
+const silentDeck = (nodeId: string): NodeDeck => ({
+  nodeId, slides: [], narration: [], durationMs: 120_000,
+});
+
 /** installDeck copies the mp3 out of the build cache, so one has to exist. */
 async function audioCache(nodeIds: readonly string[]): Promise<string> {
   const dir = join(DIR, 'cache-audio');
@@ -102,9 +106,11 @@ describe('installDeck', () => {
       await readFile(join(DIR, 'books/b1/decks/n0.json'), 'utf8'),
     ) as NodeDeck;
     expect(saved.audioPath).toBe('audio/n0.mp3');
-    expect(saved.audioPath).not.toContain(DIR);
-    expect(saved.audioPath).not.toContain('cache-audio');
-    expect(saved.audioPath.startsWith('/')).toBe(false);
+    const audioPath = saved.audioPath;
+    if (audioPath === undefined) throw new Error('expected an installed audio path');
+    expect(audioPath).not.toContain(DIR);
+    expect(audioPath).not.toContain('cache-audio');
+    expect(audioPath.startsWith('/')).toBe(false);
   });
 
   /**
@@ -120,6 +126,17 @@ describe('installDeck', () => {
 
     expect(await Bun.file(join(DIR, 'books/b1/audio/n0.mp3')).text())
       .toBe(await Bun.file(join(audio, 'n0.mp3')).text());
+  });
+
+  test('无音频 deck 不创建 mp3，并省略 audioPath', async () => {
+    await lib.installPath(path(1), notes, chapters, entry());
+    await lib.installDeck('b1', silentDeck('n0'), join(DIR, 'missing-cache'));
+
+    expect(await Bun.file(join(DIR, 'books/b1/audio/n0.mp3')).exists()).toBe(false);
+    const saved = JSON.parse(
+      await readFile(join(DIR, 'books/b1/decks/n0.json'), 'utf8'),
+    ) as NodeDeck;
+    expect(saved.audioPath).toBeUndefined();
   });
 });
 

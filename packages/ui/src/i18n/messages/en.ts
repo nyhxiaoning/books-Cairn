@@ -272,6 +272,8 @@ export const en = {
     another: 'Pick another',
     generating: 'Building',
     note: 'The Cairn is going up stone by stone, feel free to step away.',
+    cancelUpload: 'Cancel import',
+    cancelling: 'Cancelling…',
     stages: {
       map: 'Compressing each chapter',
       classify: 'Working out the kind of book',
@@ -362,6 +364,8 @@ export const en = {
     },
     narration: {
       language: 'Narration language',
+      generateAudio: 'Generate audio while importing',
+      generateAudioHint: 'Text remains available for local reading when this is off.',
       followBook: 'Follow the book',
       alwaysEn: 'Always English',
       alwaysZh: 'Always Chinese',

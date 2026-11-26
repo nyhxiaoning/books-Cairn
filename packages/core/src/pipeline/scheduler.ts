@@ -53,7 +53,7 @@ export interface SchedulerProgress {
 
 export interface DeckSchedulerOptions {
   readonly nodes: readonly PathNode[];
-  readonly build: (node: PathNode) => Promise<NodeDeck>;
+  readonly build: (node: PathNode, signal?: AbortSignal) => Promise<NodeDeck>;
   readonly store: JobStore<NodeDeck>;
   /**
    * The store key for a station, which is NOT its id.
@@ -72,7 +72,7 @@ export interface DeckSchedulerOptions {
   readonly onFailed?: (nodeId: string, error: Error, progress: SchedulerProgress) => void;
   readonly signal?: AbortSignal;
   /** Injected by tests; defaults to setTimeout. */
-  readonly sleep?: (ms: number) => Promise<void>;
+  readonly sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
 
 export interface DeckScheduler {
@@ -142,13 +142,13 @@ export function startDeckScheduler(options: DeckSchedulerOptions): DeckScheduler
     for (let n = 1; n <= maxAttempts; n += 1) {
       if (stopped || signal?.aborted) throw new JobAbortedError();
       try {
-        return await build(node);
+        return await build(node, signal);
       } catch (error) {
         last = error;
         if (error instanceof JobAbortedError) throw error;
         if (n === maxAttempts) break;
         const backoff = baseDelayMs * 2 ** (n - 1);
-        await sleep(backoff + Math.random() * backoff * 0.3);
+        await sleep(backoff + Math.random() * backoff * 0.3, signal);
       }
     }
     throw last instanceof Error ? last : new Error(String(last));
@@ -309,6 +309,19 @@ function rank(order: ReadonlyMap<string, number>, nodeId: string, from: number):
   return at >= from ? at - from : order.size + at;
 }
 
-function defaultSleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    };
+    timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }

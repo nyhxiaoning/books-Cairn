@@ -8,9 +8,11 @@ import { ParseError, type ParsedBook } from '@cairn/core/types';
 import type { BookPreview } from '../shared/types';
 import { voiceFor } from '../shared/settings';
 import { readSettings } from './settings';
+import { CairnError } from '@cairn/core/errors';
 
 /** One book, or any number of Markdown notes walked as one path. */
-export async function readBook(filePaths: readonly string[]): Promise<ParsedBook> {
+export async function readBook(filePaths: readonly string[], signal?: AbortSignal): Promise<ParsedBook> {
+  if (signal?.aborted) throw new CairnError('cancelled');
   const formats = filePaths.map((p) => detectFormat(basename(p)));
   if (formats.length === 0) throw new ParseError('没有选择文件', 'no_content');
   if (formats.length > 1 && formats.some((f) => f !== 'markdown')) {
@@ -19,11 +21,15 @@ export async function readBook(filePaths: readonly string[]): Promise<ParsedBook
 
   const read = (p: string): Promise<Uint8Array> => Bun.file(p).arrayBuffer().then((b) => new Uint8Array(b));
   if (formats[0] === 'markdown') {
-    return parseNotes(await Promise.all(filePaths.map(async (path) => ({ path, bytes: await read(path) }))));
+    const book = parseNotes(await Promise.all(filePaths.map(async (path) => ({ path, bytes: await read(path) }))));
+    if (signal?.aborted) throw new CairnError('cancelled');
+    return book;
   }
   const [only] = filePaths;
   if (only === undefined) throw new ParseError('没有选择文件', 'no_content');
-  return parseBook(await read(only), basename(only));
+  const book = parseBook(await read(only), basename(only));
+  if (signal?.aborted) throw new CairnError('cancelled');
+  return book;
 }
 
 /** What a book's id is derived from. Sorted, so the same notes picked in another order are the same path. */
@@ -31,8 +37,8 @@ export function sourceOf(filePaths: readonly string[]): string {
   return [...filePaths].sort().join('\n');
 }
 
-export async function inspect(filePaths: readonly string[]): Promise<BookPreview> {
-  const book = await readBook(filePaths);
+export async function inspect(filePaths: readonly string[], signal?: AbortSignal): Promise<BookPreview> {
+  const book = await readBook(filePaths, signal);
   // Derived from this book's shape, never a remembered rung: a stored default
   // went stale the moment a shorter book came along
   const { choices, recommended } = suggestBudgets(shapeOf(book));

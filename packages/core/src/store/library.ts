@@ -65,6 +65,8 @@ export interface LibraryEntry {
    */
   readonly language?: ContentLocale;
   readonly voice?: string;
+  /** Whether this book's decks were built with generated MP3 audio. */
+  readonly audioEnabled?: boolean;
   /** Last successful cloud sync for this book on this device. */
   readonly lastSyncedAt?: string;
   /** Recorded so a half-built path of notes resumes speaking of notes. Absent means a book. */
@@ -110,11 +112,13 @@ export interface LibrarySyncFile {
 export function normalizeEntry(entry: LibraryEntry): LibraryEntry & {
   readonly complete: boolean;
   readonly built: number;
+  readonly audioEnabled: boolean;
 } {
   return {
     ...entry,
     complete: entry.complete ?? true,
     built: entry.built ?? entry.stations,
+    audioEnabled: entry.audioEnabled ?? true,
   };
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { alignSentences, assembleDeck, parseSrt } from '../../src/pipeline/tts';
+import { alignSentences, assembleDeck, estimateNarration, parseSrt } from '../../src/pipeline/tts';
 import type { DraftDeck } from '../../src/types';
 
 const SRT = `1
@@ -121,5 +121,39 @@ describe('assembleDeck', () => {
 
   test('没有字幕就报错，而不是产出一个没有时间轴的 deck', () => {
     expect(() => assembleDeck(draft, [], '/tmp/n0.mp3')).toThrow();
+  });
+});
+
+describe('estimateNarration', () => {
+  test('中文按实测字速生成无音频时间轴，并给幻灯片定时', () => {
+    const deck = estimateNarration({
+      nodeId: 'n0',
+      sentences: ['你好。', '再见。'],
+      slides: [
+        { slide: { layout: 'title', title: '问候' }, atSentence: 0 },
+        { slide: { layout: 'points', heading: '结束', points: ['再见'] }, atSentence: 1 },
+      ],
+    }, 'zh');
+
+    expect(deck.audioPath).toBeUndefined();
+    expect(deck.narration.map(({ startMs, endMs }) => [startMs, endMs])).toEqual([
+      [0, 612], [612, 1224],
+    ]);
+    expect(deck.slides.map((slide) => slide.atMs)).toEqual([0, 612]);
+    expect(deck.durationMs).toBe(1224);
+  });
+
+  test('英文按实测词速生成确定性时间轴', () => {
+    const deck = estimateNarration({
+      nodeId: 'n1',
+      sentences: ['Read two words.', 'Then read.'],
+      slides: [],
+    }, 'en');
+
+    expect(deck.audioPath).toBeUndefined();
+    expect(deck.narration.map(({ startMs, endMs }) => [startMs, endMs])).toEqual([
+      [0, 1034], [1034, 1724],
+    ]);
+    expect(deck.durationMs).toBe(1724);
   });
 });

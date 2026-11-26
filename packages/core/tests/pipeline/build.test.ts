@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { deckKey } from '../../src/pipeline/build';
-import type { PathNode } from '../../src/types';
+import { buildNode, deckKey } from '../../src/pipeline/build';
+import type { LlmProvider } from '../../src/llm/types';
+import type { ChapterNote, Path, PathNode } from '../../src/types';
+import type { Narrator } from '../../src/pipeline/tts';
 
 const node = (over: Partial<PathNode> = {}): PathNode => ({
   id: 'n0',
@@ -49,6 +51,11 @@ describe('deckKey', () => {
     expect(deckKey(node(), 'zh-CN-YunjianNeural')).toBe(deckKey(node()));
   });
 
+  test('audio mode is part of the cache identity', () => {
+    expect(deckKey(node(), undefined, false)).not.toBe(deckKey(node()));
+    expect(deckKey(node(), undefined, true)).toBe(deckKey(node()));
+  });
+
   test('position alone does not change what the deck is', () => {
     // idx is display order, not content; it must not invalidate the cache
     expect(deckKey(node({ idx: 7 }))).toBe(deckKey(node()));
@@ -61,5 +68,34 @@ describe('deckKey', () => {
   test('the same station at two positions is two keys, never one file', () => {
     // Guards the audio filename: these become n0-….mp3 and n1-….mp3
     expect(deckKey(node({ id: 'n0' }))).not.toBe(deckKey(node({ id: 'n1' })));
+  });
+});
+
+describe('buildNode', () => {
+  test('no-audio builds skip narrator readiness and synthesis', async () => {
+    const provider: LlmProvider = {
+      name: 'test',
+      suggestedConcurrency: 1,
+      overheadTokens: 0,
+      complete: async () => JSON.stringify({ sentences: ['One sentence.'], slides: [] }),
+    };
+    const narrator: Narrator = {
+      name: 'unavailable',
+      ensureReady: async () => { throw new Error('narrator should not be checked'); },
+      speak: async () => { throw new Error('narrator should not be called'); },
+    };
+    const notes: readonly ChapterNote[] = [{ idx: 0, title: 'Chapter', gist: 'g', keyPoints: [], quotes: [] }];
+    const path: Path = {
+      bookId: 'b1', title: 'Book', type: 'knowledge', nodes: [node()], stages: [],
+      totalMinutes: 3, generatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const deck = await buildNode(
+      node(), path, new Map([[0, notes[0]!]]), '/tmp/cairn-audio', provider, narrator,
+      { locale: 'en', generateAudio: false },
+    );
+
+    expect(deck.audioPath).toBeUndefined();
+    expect(deck.durationMs).toBeGreaterThan(0);
   });
 });

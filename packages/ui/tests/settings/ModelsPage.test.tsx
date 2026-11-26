@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
 import { ModelsPage } from '../../src/settings/ModelsPage';
+import { NarrationPage } from '../../src/settings/pages';
 import { SettingsProvider } from '../../src/settings/SettingsProvider';
 import type { ProviderInfo, ShellSettings } from '../../src/settings/shell';
 
@@ -38,6 +39,7 @@ function shellWith(overrides: Partial<ShellSettings['prefs']> = {}): ShellSettin
       providers: {}, generationProvider: 'openai', chatProvider: 'inherit',
       chatModel: '',
       narration: 'follow', voices: { en: 'en-US-AndrewNeural', zh: 'zh-CN-YunjianNeural' },
+      generateAudio: true,
       searchProvider: 'firecrawl', braveKey: '', firecrawlKey: '', tavilyKey: '', wereadKey: '', trace: false,
       ...overrides,
     },
@@ -56,6 +58,9 @@ function shellWith(overrides: Partial<ShellSettings['prefs']> = {}): ShellSettin
 
 const render = (shell?: ShellSettings): string =>
   renderToStaticMarkup(createElement(SettingsProvider, null, createElement(ModelsPage, { shell })));
+
+const renderNarration = (shell?: ShellSettings): string =>
+  renderToStaticMarkup(createElement(SettingsProvider, null, createElement(NarrationPage, { shell })));
 
 const CODEX: ProviderInfo = {
   id: 'openai-codex', label: 'OpenAI Codex', getKeyUrl: 'https://openai.com/codex', faviconDomain: 'openai.com',
@@ -114,5 +119,12 @@ describe('ModelsPage', () => {
 
   test('without a shell it says so instead of pretending the controls work', () => {
     expect(render(undefined)).toContain('bun run start');
+  });
+
+  test('narration page exposes the import audio switch', () => {
+    const html = renderNarration(shellWith({ generateAudio: false }));
+    expect(html).toContain('Generate audio while importing');
+    expect(html).toContain('Text remains available for local reading when this is off.');
+    expect(html).toContain('aria-checked="false"');
   });
 });

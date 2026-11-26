@@ -4,7 +4,7 @@ import type { BudgetId } from '@cairn/core/pipeline/budget';
 import type { LibraryEntry } from '@cairn/core/store/library';
 import { errorText, useT } from '@cairn/ui';
 import { payloadOf } from '@cairn/core/errors';
-import { generateBook, onProgress, pickBook, progressNow, wereadQuotes } from './bridge';
+import { cancelGenerateBook, generateBook, onProgress, pickBook, progressNow, wereadQuotes } from './bridge';
 import { QuoteCycle } from './QuoteCycle';
 import { VOICES } from './shared/settings';
 import type { BookPreview, Progress } from './shared/types';
@@ -16,6 +16,7 @@ function voiceName(id: string): string {
 
 /** Slow enough to be free, fast enough that a finished batch shows up promptly. */
 const POLL_MS = 1500;
+const STALL_MS = 5 * 60_000;
 
 /**
  * Adding a book, in three steps: pick a file, choose how long you want to spend,
@@ -36,12 +37,27 @@ export function AddBook({
   const [parsing, setParsing] = useState(false);
   const [error, setError] = useState<string>();
   const [quotes, setQuotes] = useState<readonly string[]>([]);
+  const [stalled, setStalled] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const lastProgressAt = useRef(0);
+  const progressSignature = useRef<string | undefined>(undefined);
+  const cancelRequested = useRef(false);
   /** The native dialog is not idempotent: opening it twice stacks two windows. */
   const picked = useRef(false);
 
-  const polling = progress !== undefined && progress.stage !== 'done';
+  const polling = parsing || (progress !== undefined && progress.stage !== 'done');
 
-  useEffect(() => onProgress(setProgress), []);
+  const observeProgress = (next: Progress): void => {
+    const signature = `${next.stage}:${next.done}:${next.total}:${next.note ?? ''}`;
+    if (signature !== progressSignature.current) {
+      progressSignature.current = signature;
+      lastProgressAt.current = Date.now();
+      setStalled(false);
+    }
+    setProgress(next);
+  };
+
+  useEffect(() => onProgress(observeProgress), []);
 
   // Fetched while the budget is being chosen, so they are there when the wait starts
   useEffect(() => {
@@ -55,7 +71,8 @@ export function AddBook({
   useEffect(() => {
     if (!polling) return;
     const timer = setInterval(() => {
-      void progressNow().then((p) => { if (p) setProgress(p); });
+      if (Date.now() - lastProgressAt.current >= STALL_MS) setStalled(true);
+      void progressNow().then((p) => { if (p) observeProgress(p); });
     }, POLL_MS);
     return () => clearInterval(timer);
   }, [polling]);
@@ -71,12 +88,17 @@ export function AddBook({
 
   const pick = async (): Promise<void> => {
     setError(undefined);
+    cancelRequested.current = false;
+    progressSignature.current = 'parsing';
+    lastProgressAt.current = Date.now();
+    setStalled(false);
     setParsing(true);
     try {
       const chosen = await pickBook();
       // Cancelling the dialog is not an error; close rather than sit on a dead screen
       if (chosen) setPreview(chosen); else if (autoPick) onClose();
     } catch (e) {
+      if (cancelRequested.current) return;
       setError(errorText(payloadOf(e), t));
     } finally {
       setParsing(false);
@@ -86,13 +108,26 @@ export function AddBook({
   const run = async (budgetId: BudgetId): Promise<void> => {
     if (!preview) return;
     setError(undefined);
-    setProgress({ stage: 'map', done: 0, total: 1 });
+    cancelRequested.current = false;
+    progressSignature.current = undefined;
+    observeProgress({ stage: 'map', done: 0, total: 1 });
     try {
       onDone(await generateBook(preview.filePaths, budgetId));
     } catch (e) {
+      if (cancelRequested.current) return;
       setError(errorText(payloadOf(e), t));
       setProgress(undefined);
     }
+  };
+
+  const cancel = async (): Promise<void> => {
+    cancelRequested.current = true;
+    setCancelling(true);
+    await cancelGenerateBook().catch(() => false);
+    setProgress(undefined);
+    setStalled(false);
+    setCancelling(false);
+    onClose();
   };
 
   const running = progress !== undefined;
@@ -110,6 +145,11 @@ export function AddBook({
             <button type="button" className="primary" onClick={pick} disabled={parsing}>
               {parsing ? t.add.picking : t.add.pick}
             </button>
+            {parsing && stalled && (
+              <button type="button" className="ghost" disabled={cancelling} onClick={() => void cancel()}>
+                {cancelling ? t.add.cancelling : t.add.cancelUpload}
+              </button>
+            )}
           </>
         )}
 
@@ -168,6 +208,11 @@ export function AddBook({
               <i style={{ width: `${pct(progress)}%` }} />
             </div>
             <QuoteCycle quotes={quotes} fallback={t.add.note} />
+            {stalled && (
+              <button type="button" className="ghost" disabled={cancelling} onClick={() => void cancel()}>
+                {cancelling ? t.add.cancelling : t.add.cancelUpload}
+              </button>
+            )}
           </>
         )}
 

@@ -64,6 +64,7 @@ export type BunSchema = RPCSchema<{
     progressNow: { params: void; response: Progress | null };
     pickBook: { params: void; response: BookPreview | null };
     generateBook: { params: { filePaths: readonly string[]; budgetId: BudgetId }; response: LibraryEntry };
+    cancelGenerateBook: { params: void; response: boolean };
     chatHistory: { params: { bookId: string }; response: ChatSession };
     chatSend: { params: { turnId: string; bookId: string; nodeId?: string; question: string; locale: UiLocale; selection?: string }; response: boolean };
     chatCancel: { params: { turnId: string }; response: boolean };

@@ -42,10 +42,17 @@ export interface GeneratedBook {
   readonly settled: Promise<LibraryEntry | undefined>;
 }
 
+export interface GenerateOptions {
+  readonly generateAudio?: boolean;
+  readonly signal?: AbortSignal;
+}
+
 export interface BookBuilder {
   /** Map, classify, reduce, install the path — then return once station 1 plays. */
   generate(
-    book: ParsedBook, sourcePath: string, budgetId: BudgetId, onProgress?: (p: Progress) => void,
+    book: ParsedBook, sourcePath: string, budgetId: BudgetId,
+    onProgressOrOptions?: ((p: Progress) => void) | GenerateOptions,
+    options?: GenerateOptions,
   ): Promise<GeneratedBook>;
   /** Pick a half-built book back up. False when there is nothing to resume. */
   resume(bookId: string): Promise<boolean>;
@@ -93,6 +100,8 @@ export function createBookBuilder(deps: BookBuilderDeps): BookBuilder {
     kind: SourceKind,
     provider: LlmProvider,
     store: Parameters<typeof startDeckScheduler>[0]['store'],
+    generateAudio: boolean,
+    signal?: AbortSignal,
   ): Handle {
     const existing = running.get(path.bookId);
     if (existing) return existing;
@@ -119,8 +128,12 @@ export function createBookBuilder(deps: BookBuilderDeps): BookBuilder {
     const scheduler = startDeckScheduler({
       nodes: path.nodes,
       store,
-      keyOf: (node) => deckKey(node, voice),
-      build: (node) => buildNode(node, path, byChapter, audioDir, provider, narrator, { voice, locale, kind }),
+      keyOf: (node) => deckKey(node, voice, generateAudio),
+      signal,
+      build: (node, buildSignal) => buildNode(
+        node, path, byChapter, audioDir, provider, narrator,
+        { voice, locale, kind, generateAudio, signal: buildSignal },
+      ),
       onReady: async (deck, progress) => {
         decks.push(deck);
         await library.installDeck(path.bookId, deck, audioDir);
@@ -186,9 +199,16 @@ export function createBookBuilder(deps: BookBuilderDeps): BookBuilder {
     fileStore<NodeDeck>(join(library.cacheDir(bookId), `decks-${budgetId}.json`));
 
   return {
-    async generate(book, sourcePath, budgetId, onProgress = () => undefined) {
+    async generate(book, sourcePath, budgetId, onProgressOrOptions, options) {
+      const onProgress = typeof onProgressOrOptions === 'function'
+        ? onProgressOrOptions
+        : () => undefined;
+      const generateOptions = typeof onProgressOrOptions === 'function'
+        ? options
+        : onProgressOrOptions;
+      const generateAudio = generateOptions?.generateAudio ?? true;
       // Synthesis runs last; an unreachable narrator must fail before paying for slides
-      await narrator.ensureReady();
+      if (generateAudio) await narrator.ensureReady();
 
       const id = bookIdFor(book, sourcePath);
       const budget = budgetsFor(shapeOf(book))[budgetId];
@@ -201,18 +221,21 @@ export function createBookBuilder(deps: BookBuilderDeps): BookBuilder {
       const { notes, job } = await mapChapters(book.chapters, provider, mapStore, {
         locale: book.language,
         kind,
+        signal: generateOptions?.signal,
         onProgress: (p) => onProgress({ stage: 'map', done: p.done + p.failed, total: p.total }),
       });
       // When no batch survived, the first failure says why (no credit, a bad key, a timeout)
       if (notes.length === 0) throw job.failures[0]?.error ?? new CairnError('map_empty');
 
       onProgress({ stage: 'classify', done: 0, total: 1 });
-      const cls = await classifyBook(book.title, notes, provider, undefined, book.language, kind);
+      const cls = await classifyBook(book.title, notes, provider, generateOptions?.signal, book.language, kind);
 
       onProgress({ stage: 'reduce', done: 0, total: 1, note: cls.type });
       // Appended after reduce: reduce is judged against the budget, and a station it did not choose would fight that
       const reduced = withRecap(
-        await reduceToPath(notes, cls.type, book.totalWords, provider, { budget, locale: book.language, kind }),
+        await reduceToPath(notes, cls.type, book.totalWords, provider, {
+          budget, locale: book.language, kind, signal: generateOptions?.signal,
+        }),
         book.language,
         kind,
       );
@@ -242,11 +265,13 @@ export function createBookBuilder(deps: BookBuilderDeps): BookBuilder {
         quality,
         language: book.language,
         voice,
+        audioEnabled: generateAudio,
         ...(kind === 'notes' ? { kind } : {}),
       });
 
       const { scheduler, settled } = startBuilding(
         path, notes, budgetId, quality, voice, book.language, kind, provider, await deckStore(id, budgetId),
+        generateAudio, generateOptions?.signal,
       );
 
       const first = path.nodes[0];
@@ -270,7 +295,7 @@ export function createBookBuilder(deps: BookBuilderDeps): BookBuilder {
       const budgetId = entry.budgetId as BudgetId;
       startBuilding(
         path, notes, budgetId, entry.quality, await voiceOf(entry), entry.language ?? 'zh', entry.kind ?? 'book',
-        await deps.providerFor(bookId), await deckStore(bookId, budgetId),
+        await deps.providerFor(bookId), await deckStore(bookId, budgetId), entry.audioEnabled ?? true,
       );
       return true;
     },

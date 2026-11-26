@@ -111,18 +111,26 @@ export function DeckPane({
     lastVisualProgress.current = 0;
     setFallback(undefined);
     window.speechSynthesis?.cancel();
-  }, [node.id, deck]);
+    if (deck?.audioPath === undefined) activateFallback();
+  }, [activateFallback, node.id, deck]);
 
   // Restart from the top whenever the station changes — and only then
   useEffect(() => {
     const el = audio.current;
-    // Wait for the deck: consuming the resume point before there is audio to
-    // seek would spend it on nothing and start the station over.
-    if (!el || !deck) return;
+    if (!deck) return;
 
     const resumeMs = startAt(pending.current, node.id, deck.durationMs);
     pending.current = undefined;
     setMs(resumeMs);
+
+    if (deck.audioPath === undefined) {
+      visual.current?.seek(resumeMs / 1000);
+      return;
+    }
+
+    // Wait for the deck: consuming the resume point before there is audio to
+    // seek would spend it on nothing and start the station over.
+    if (!el) return;
 
     if (resumeMs === 0) {
       el.currentTime = 0;

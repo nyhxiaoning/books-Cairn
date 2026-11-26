@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import type { ContentLocale } from '../parse/language';
 import type { DraftDeck, NarrationCue, NodeDeck, Slide } from '../types';
 import { CairnError } from '../errors';
+import { estimateMs } from './voice';
 
 // Re-exported so existing importers keep working; defined in `voice.ts`,
 // which the renderer can bundle and this file cannot.
@@ -195,7 +196,7 @@ export function alignSentences(
 export function assembleDeck(
   deck: DraftDeck,
   cues: readonly SrtCue[],
-  audioPath: string,
+  audioPath?: string,
 ): NodeDeck {
   if (cues.length === 0) throw new CairnError('tts_unaligned');
 
@@ -203,7 +204,7 @@ export function assembleDeck(
 
   return {
     nodeId: deck.nodeId,
-    audioPath,
+    ...(audioPath === undefined ? {} : { audioPath }),
     durationMs: narration[narration.length - 1]?.endMs ?? 0,
     narration,
     slides: deck.slides.map(({ slide, atSentence }) => ({
@@ -211,6 +212,18 @@ export function assembleDeck(
       atMs: narration[Math.min(atSentence, narration.length - 1)]?.startMs ?? 0,
     })) as readonly (Slide & { atMs: number })[],
   };
+}
+
+/** Build the same playable timeline without paying for an audio file. */
+export function estimateNarration(deck: DraftDeck, locale: ContentLocale): NodeDeck {
+  let at = 0;
+  const cues: SrtCue[] = deck.sentences.map((text) => {
+    const startMs = at;
+    const endMs = startMs + estimateMs(text, locale);
+    at = endMs;
+    return { text, startMs, endMs };
+  });
+  return assembleDeck(deck, cues);
 }
 
 /** `key` is a content fingerprint (see `build.ts`), not a station id: one audio

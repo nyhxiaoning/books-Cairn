@@ -11,7 +11,9 @@ import { fingerprint } from './fingerprint';
 import type { ContentLocale } from '../parse/language';
 import { isRecap, makeRecapDeck } from './recap';
 import { makeDeck } from './slides';
-import { DEFAULT_VOICE, deckAudioPath, type Narrator, type TtsOptions } from './tts';
+import {
+  DEFAULT_VOICE, deckAudioPath, estimateNarration, type Narrator, type TtsOptions,
+} from './tts';
 import { CairnError } from '../errors';
 
 /**
@@ -27,7 +29,7 @@ import { CairnError } from '../errors';
  * The station id stays as a prefix for legibility when reading the cache dir;
  * only the fingerprint decides reuse.
  */
-export function deckKey(node: PathNode, voice?: string): string {
+export function deckKey(node: PathNode, voice?: string, generateAudio = true): string {
   return `${node.id}-${fingerprint({
     title: node.title,
     kind: node.kind,
@@ -36,6 +38,7 @@ export function deckKey(node: PathNode, voice?: string): string {
     sourceChapters: node.sourceChapters,
     estMinutes: node.estMinutes,
     voice: voice ?? DEFAULT_VOICE,
+    generateAudio,
   })}`;
 }
 
@@ -43,6 +46,7 @@ export function deckKey(node: PathNode, voice?: string): string {
 export interface NodeBuildOptions extends TtsOptions {
   readonly locale?: ContentLocale;
   readonly kind?: SourceKind;
+  readonly generateAudio?: boolean;
 }
 
 export async function buildNode(
@@ -64,7 +68,9 @@ export async function buildNode(
     )
     : await makeDeck(node, chapterNotes(node, byChapter), provider, options.signal, locale, options.kind);
 
-  return narrator.speak(draft, deckAudioPath(audioDir, deckKey(node, options.voice)), options);
+  if (options.generateAudio === false) return estimateNarration(draft, locale);
+  const key = deckKey(node, options.voice, true);
+  return narrator.speak(draft, deckAudioPath(audioDir, key), options);
 }
 
 function chapterNotes(

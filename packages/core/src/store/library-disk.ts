@@ -24,7 +24,7 @@ export interface Library {
   installPath(
     path: Path, notes: readonly ChapterNote[], chapters: readonly Chapter[], entry: LibraryEntry,
   ): Promise<LibraryEntry>;
-  /** One station becomes playable: its deck and its audio, together. */
+  /** One station becomes playable: its deck and optional audio, together. */
   installDeck(bookId: string, deck: NodeDeck, audioDir: string): Promise<void>;
   writeDeckIndex(bookId: string, index: DeckIndex): Promise<void>;
   readDeckIndex(bookId: string): Promise<DeckIndex | undefined>;
@@ -154,17 +154,25 @@ export function openLibrary(root: string): Library {
     },
 
     async installDeck(bookId, deck, audioDir) {
-      await mkdir(join(dirOf(bookId), 'audio'), { recursive: true });
-      // Source is content-keyed (`deckKey`), destination is the station id the
-      // player builds its URL from; rebuilding the source from the id shipped
-      // one budget's audio under another budget's subtitles.
-      await Bun.write(at(audioFile(bookId, deck.nodeId)), Bun.file(join(audioDir, basename(deck.audioPath))));
+      if (deck.audioPath !== undefined) {
+        await mkdir(join(dirOf(bookId), 'audio'), { recursive: true });
+        // Source is content-keyed (`deckKey`), destination is the station id the
+        // player builds its URL from; rebuilding the source from the id shipped
+        // one budget's audio under another budget's subtitles.
+        await Bun.write(
+          at(audioFile(bookId, deck.nodeId)),
+          Bun.file(join(audioDir, basename(deck.audioPath))),
+        );
+      }
 
       // Relative to the book, never the build cache: see `NodeDeck.audioPath`
       await mkdir(join(dirOf(bookId), 'decks'), { recursive: true });
       await writeFile(
         at(deckFile(bookId, deck.nodeId)),
-        JSON.stringify({ ...deck, audioPath: `audio/${deck.nodeId}.mp3` }),
+        JSON.stringify({
+          ...deck,
+          ...(deck.audioPath === undefined ? {} : { audioPath: `audio/${deck.nodeId}.mp3` }),
+        }),
       );
     },
 

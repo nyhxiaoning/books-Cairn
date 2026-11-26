@@ -117,6 +117,7 @@ export function PlaybackPage(): ReactElement {
 export function NarrationPage({ shell }: { shell?: ShellSettings }): ReactElement {
   const { t } = useUi();
   const languageId = useId();
+  const audioId = useId();
 
   if (!shell) return <Offline title={t.settings.pages.narration} />;
 
@@ -137,6 +138,18 @@ export function NarrationPage({ shell }: { shell?: ShellSettings }): ReactElemen
           value={shell.prefs.narration}
           choices={languages}
           onPick={(value) => shell.setPref('narration', value)}
+        />
+      </Row>
+
+      <Row
+        label={t.settings.narration.generateAudio}
+        hint={t.settings.narration.generateAudioHint}
+      >
+        <Switch
+          id={audioId}
+          checked={shell.prefs.generateAudio}
+          onChange={(next) => shell.setPref('generateAudio', next)}
+          label={t.settings.narration.generateAudio}
         />
       </Row>
 

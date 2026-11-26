@@ -306,7 +306,7 @@ export interface NodeDeck {
   readonly slides: readonly (Slide & { readonly atMs: number })[];
   readonly narration: readonly NarrationCue[];
   /**
-   * Where this station's audio is.
+   * Where this station's audio is, when the book was built with MP3 generation enabled.
    *
    * Absolute while the deck is in flight — it points into the content-keyed
    * build cache, and `install` copies from exactly that name rather than
@@ -316,7 +316,7 @@ export interface NodeDeck {
    * idea what `/Users/karen` means. Players derive the URL from
    * `audioFile(bookId, nodeId)` regardless and never read this.
    */
-  readonly audioPath: string;
+  readonly audioPath?: string;
   readonly durationMs: number;
 }
 

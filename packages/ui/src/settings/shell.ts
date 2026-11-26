@@ -71,6 +71,8 @@ export interface ShellPrefs {
   readonly narration: NarrationLanguage;
   /** Voice id per language, e.g. `en-US-AndrewNeural`. */
   readonly voices: Readonly<Record<Locale, string>>;
+  /** Whether newly imported books should synthesize MP3 narration. */
+  readonly generateAudio: boolean;
   readonly wereadKey: string;
   readonly trace: boolean;
 }

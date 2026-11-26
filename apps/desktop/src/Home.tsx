@@ -82,31 +82,25 @@ export function Home({
 
   return (
     <div className="home">
-      <header className="home-head">
-        <h1>Cairn</h1>
-        <p>{t.home.tagline}</p>
-        {/* The only way in from the shelf; inside a book it is in the book menu. */}
-        <button
-          type="button"
-          className="home-gear"
-          onClick={onSettings}
-          aria-label={t.home.settings}
-          title={`${t.home.settings} (${shortcuts.label(',')})`}
-        >
-          <GearMark />
-        </button>
-      </header>
+      <aside className="home-sidebar">
+        <header className="home-head">
+          <h1>Cairn</h1>
+          <p>{t.home.tagline}</p>
+          {/* The only way in from the shelf; inside a book it is in the book menu. */}
+          <button
+            type="button"
+            className="home-gear"
+            onClick={onSettings}
+            aria-label={t.home.settings}
+            title={`${t.home.settings} (${shortcuts.label(',')})`}
+          >
+            <GearMark />
+          </button>
+        </header>
 
-      <button type="button" className="drop-zone" onClick={onAdd} disabled={!inShell}>
-        <span className="drop-title">{t.home.dropTitle}</span>
-        <span className="drop-sub">{t.home.dropSub(FEATURED_FORMATS)}</span>
-        <span className="drop-cta">{inShell ? t.home.dropCta : t.home.devCta}</span>
-      </button>
-
-      {books.length > 0 && (
-        <section className="shelf">
-          <h2 className="shelf-title">{t.home.shelf}</h2>
-          <div className="shelf-filters">
+        {books.length > 0 && (
+          <section className="shelf-filters" aria-labelledby="shelf-title">
+            <h2 id="shelf-title" className="shelf-title">{t.home.shelf}</h2>
             <input
               type="search"
               className="shelf-search"
@@ -124,7 +118,19 @@ export function Home({
                 <CategoryButton key={name} active={category === name} onClick={() => setCategory(name)}>{name}</CategoryButton>
               ))}
             </div>
-          </div>
+          </section>
+        )}
+      </aside>
+
+      <main className="home-content">
+        <button type="button" className="drop-zone" onClick={onAdd} disabled={!inShell}>
+          <span className="drop-title">{t.home.dropTitle}</span>
+          <span className="drop-sub">{t.home.dropSub(FEATURED_FORMATS)}</span>
+          <span className="drop-cta">{inShell ? t.home.dropCta : t.home.devCta}</span>
+        </button>
+
+        {books.length > 0 && (
+          <section className="shelf">
           {visible.map((b) => (
             <div className="shelf-row" key={b.id}>
               {renaming === b.id ? (
@@ -154,8 +160,9 @@ export function Home({
               />
             </div>
           ))}
-        </section>
-      )}
+          </section>
+        )}
+      </main>
     </div>
   );
 }

@@ -260,6 +260,8 @@ export const zh: Messages = {
     another: '换一本',
     generating: '生成中',
     note: '石头正在垒，你可以先去忙别的。',
+    cancelUpload: '取消上传',
+    cancelling: '正在取消…',
     stages: {
       map: '逐章压缩',
       classify: '判定类型',
@@ -350,6 +352,8 @@ export const zh: Messages = {
     },
     narration: {
       language: '口播语言',
+      generateAudio: '导入时生成音频',
+      generateAudioHint: '关闭后，新图书使用系统语音临时朗读，不生成 MP3。',
       followBook: '跟随书本',
       alwaysEn: '总是英文',
       alwaysZh: '总是中文',

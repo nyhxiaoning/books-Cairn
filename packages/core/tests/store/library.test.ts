@@ -54,7 +54,7 @@ describe('normalizeEntry', () => {
       id: 'a', title: 'A', stations: 12, minutes: 40,
       budgetId: 'solid', generatedAt: '2026-01-01T00:00:00.000Z',
     };
-    expect(normalizeEntry(old)).toMatchObject({ complete: true, built: 12 });
+    expect(normalizeEntry(old)).toMatchObject({ complete: true, built: 12, audioEnabled: true });
   });
 
   test('新库的字段原样保留', () => {
@@ -64,6 +64,14 @@ describe('normalizeEntry', () => {
       complete: false, built: 3,
     };
     expect(normalizeEntry(fresh)).toMatchObject({ complete: false, built: 3 });
+  });
+
+  test('preserves a disabled audio snapshot', () => {
+    const entry = normalizeEntry({
+      id: 'a', title: 'A', stations: 12, minutes: 40,
+      budgetId: 'solid', generatedAt: '2026-01-01T00:00:00.000Z', audioEnabled: false,
+    });
+    expect(entry.audioEnabled).toBe(false);
   });
 
   test('preserves the local sync timestamp', () => {

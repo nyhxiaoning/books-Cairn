@@ -226,6 +226,11 @@ export async function generateBook(filePaths: readonly string[], budgetId: Budge
   return (await connect()).request.generateBook({ filePaths, budgetId }, NO_LIMIT).catch(rethrow);
 }
 
+export async function cancelGenerateBook(): Promise<boolean> {
+  if (!inShell) return false;
+  return (await connect()).request.cancelGenerateBook(undefined, POLL_LIMIT).catch(rethrow);
+}
+
 /** Every WeChat Reading call degrades to nothing: none of them is worth an error in the reader's face. */
 export async function wereadQuotes(title: string, author?: string): Promise<readonly string[]> {
   if (!inShell) return [];

@@ -13,6 +13,12 @@ describe('parseSettings', () => {
     expect(DEFAULT_SHELL_SETTINGS.narration).toBe('follow');
   });
 
+  test('audio generation is enabled by default, but an explicit false is kept', () => {
+    expect(DEFAULT_SHELL_SETTINGS.generateAudio).toBe(true);
+    expect(parseSettings({}).generateAudio).toBe(true);
+    expect(parseSettings({ generateAudio: false }).generateAudio).toBe(false);
+  });
+
   test('the Chinese default is the voice every existing book was built with', () => {
     // Changing this silently re-keys every book that never chose a voice
     expect(DEFAULT_SHELL_SETTINGS.voices.zh).toBe('zh-CN-YunjianNeural');
@@ -26,6 +32,7 @@ describe('parseSettings', () => {
       chatModel: '',
       narration: 'en',
       voices: { en: 'en-US-AvaNeural', zh: 'zh-CN-XiaoxiaoNeural' },
+      generateAudio: true,
       wereadKey: 'wrk-x',
       trace: true,
     };

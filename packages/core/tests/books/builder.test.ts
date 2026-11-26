@@ -48,11 +48,14 @@ function model(): LlmProvider & { seen: LlmRequest[] } {
 }
 
 /** Writes a stand-in mp3 where the real narrator would, and remembers the voice it was asked for. */
-function narrator(): Narrator & { voices: string[] } {
+function narrator(): Narrator & { voices: string[]; readyCalls: number } {
   const voices: string[] = [];
+  let readyCalls = 0;
   return {
-    voices, name: 'stub',
-    async ensureReady() {},
+    voices,
+    get readyCalls() { return readyCalls; },
+    name: 'stub',
+    async ensureReady() { readyCalls += 1; },
     async speak(draft: DraftDeck, audioPath: string, options?: TtsOptions): Promise<NodeDeck> {
       voices.push(options?.voice ?? DEFAULT_VOICE);
       await Bun.write(audioPath, 'mp3');
@@ -63,6 +66,7 @@ function narrator(): Narrator & { voices: string[] } {
 
 let library: Library;
 let voices: string[];
+let narratorReadyCalls: number;
 let statuses: DeckStatus[];
 let requests: LlmRequest[];
 let builder: BookBuilder;
@@ -73,6 +77,7 @@ beforeEach(async () => {
   library = openLibrary(await mkdtemp(join(tmpdir(), 'cairn-builder-')));
   const n = narrator();
   voices = n.voices;
+  narratorReadyCalls = 0;
   statuses = [];
   requests = [];
   builder = createBookBuilder({
@@ -85,9 +90,29 @@ beforeEach(async () => {
     voiceFor: async (language) => (language === 'zh' ? 'zh-CN-XiaoxiaoNeural' : 'en-US-AvaNeural'),
     onDeckStatus: (s) => statuses.push(s),
   });
+  const originalEnsureReady = n.ensureReady;
+  n.ensureReady = async () => {
+    narratorReadyCalls += 1;
+    await originalEnsureReady();
+  };
 });
 
 describe('generate', () => {
+  test('can skip MP3 generation and records the choice on the shelf entry', async () => {
+    const { entry, settled } = await builder.generate(book, '/books/silent.txt', 'brief', {
+      generateAudio: false,
+    });
+    await settled;
+
+    expect(entry.audioEnabled).toBe(false);
+    expect((await library.list()).find((item) => item.id === entry.id)?.audioEnabled).toBe(false);
+    expect(voices).toEqual([]);
+    expect(narratorReadyCalls).toBe(0);
+    const path = await library.loadPath(entry.id);
+    const deck = JSON.parse(await Bun.file(join(library.root, `books/${entry.id}/decks/${path.nodes[0]?.id}.json`)).text()) as NodeDeck;
+    expect(deck.audioPath).toBeUndefined();
+  });
+
   test('ends the path with the recap station', async () => {
     const { entry, settled } = await builder.generate(book, '/books/a.txt', 'brief');
     await settled;
@@ -192,6 +217,15 @@ describe('resume', () => {
     expect(await builder.resume(id)).toBe(true);
     await builder.schedulerFor(id)?.done;
     expect(voices).toEqual(['zh-CN-YunxiNeural']);
+  });
+
+  test('keeps a disabled audio snapshot when resuming, even if the setting is now enabled', async () => {
+    await halfBuilt({ language: 'zh', voice: 'zh-CN-YunxiNeural', audioEnabled: false });
+    expect(await builder.resume(id)).toBe(true);
+    await builder.schedulerFor(id)?.done;
+    expect(voices).toEqual([]);
+    const deck = JSON.parse(await Bun.file(join(library.root, `books/${id}/decks/n0.json`)).text()) as NodeDeck;
+    expect(deck.audioPath).toBeUndefined();
   });
 
   test('a book from before voices were recorded resumes in the default, not the setting', async () => {

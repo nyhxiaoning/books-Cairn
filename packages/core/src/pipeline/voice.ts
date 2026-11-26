@@ -67,5 +67,9 @@ export function targetWords(minutes: number): number {
 
 /** Predicted duration before synthesis, for progress display. */
 export function estimateMs(text: string, locale: ContentLocale = 'zh'): number {
-  return Math.round((text.length / CHARS_PER_SECOND[locale]) * 1000);
+  const amount = locale === 'en'
+    ? text.trim().split(/\s+/).filter(Boolean).length
+    : text.length;
+  const rate = locale === 'en' ? WORDS_PER_SECOND : CHARS_PER_SECOND[locale];
+  return Math.round((amount / rate) * 1000);
 }

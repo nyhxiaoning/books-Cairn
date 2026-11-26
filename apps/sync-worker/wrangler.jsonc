@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "cairn-sync",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+      "database_id": "e48532e5-5a8f-4e27-8334-1bf341e49856"
     }
   ],
   "r2_buckets": [
