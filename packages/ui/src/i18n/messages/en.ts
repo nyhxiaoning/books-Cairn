@@ -407,6 +407,7 @@ export const en = {
       statusSuccess: 'Synced',
       statusError: 'Sync failed',
       statusConflict: 'Cloud version differs',
+      closeStatus: 'Close sync status',
       overwriteConfirm: (title: string) => `Cloud resources for “${title}” already exist and differ. Overwrite them with the local version?`,
       progressPhase: {
         manifest: 'Reading the cloud manifest',

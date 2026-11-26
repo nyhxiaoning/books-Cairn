@@ -28,7 +28,7 @@ import { useShellSettings } from './useShellSettings';
 import { applyCompanionEvent, beginCompanionTurn, emptyCompanionView } from './companion-state';
 import type { BookMeta } from './shared/types';
 import type { UniversePanelState } from './UniversePanel';
-import type { UniverseChange } from './shared/schema';
+import type { SyncStatus, UniverseChange } from './shared/schema';
 import { renderSlidesHtml } from './export/slide-html';
 import { exportFileName } from '@cairn/core/export/audio-plan';
 
@@ -51,6 +51,7 @@ export function App(): ReactElement {
     readonly bookId: string;
     readonly state: UniversePanelState;
   }>();
+  const [dismissedSyncToast, setDismissedSyncToast] = useState<string>();
   /** Port and token are new on every launch, so every URL is built from this. */
   const [base, setBase] = useState<string>();
   const { bundle, error, reload } = useBundle(bookId, base);
@@ -63,6 +64,8 @@ export function App(): ReactElement {
   const prefsRef = useRef(prefs);
   prefsRef.current = prefs;
   const shell = useShellSettings();
+  const syncToastKey = shell ? syncStatusKey(shell.sync.status) : undefined;
+  const syncToastVisible = syncToastKey !== undefined && syncToastKey !== dismissedSyncToast;
   const resume = useResume();
   const left = useSplit('pane.left', DEFAULT_LEFT, LEFT_LIMITS, 'left');
   const right = useSplit('pane.right', DEFAULT_RIGHT, RIGHT_LIMITS, 'right');
@@ -415,7 +418,12 @@ export function App(): ReactElement {
   if (!bookId) {
     return (
       <div className="shell empty">
-        {shell && <ShelfSyncStatus shell={shell} />}
+        {shell && syncToastVisible && (
+          <SyncStatusToast
+            shell={shell}
+            onClose={() => setDismissedSyncToast(syncToastKey)}
+          />
+        )}
         <Home
           books={books}
           catalog={catalog}
@@ -566,8 +574,19 @@ export function App(): ReactElement {
   );
 }
 
-function ShelfSyncStatus({ shell }: {
+function syncStatusKey(status: SyncStatus): string | undefined {
+  if (status.state === 'disabled') return undefined;
+  const progress = status.progress;
+  return [
+    status.state, status.message ?? '', status.lastSuccessAt ?? '',
+    progress?.phase ?? '', progress?.currentBookId ?? '', progress?.completedBooks ?? '',
+    progress?.completedResources ?? '', progress?.totalResources ?? '', progress?.currentResourcePath ?? '',
+  ].join('|');
+}
+
+function SyncStatusToast({ shell, onClose }: {
   shell: NonNullable<ReturnType<typeof useShellSettings>>;
+  onClose: () => void;
 }): ReactElement | null {
   const { t } = useUi();
   const status = shell.sync.status;
@@ -581,9 +600,23 @@ function ShelfSyncStatus({ shell }: {
     disabled: t.settings.sync.statusDisabled,
   }[status.state];
   return (
-    <div className="shelf-sync-status" role="status">
-      <span>{status.message ?? label}</span>
-      {status.lastSuccessAt && <span> · {t.settings.sync.lastSuccess(new Date(status.lastSuccessAt).toLocaleString())}</span>}
+    <div className={`sync-toast sync-toast-${status.state}`} role={status.state === 'error' || status.state === 'conflict' ? 'alert' : 'status'}>
+      <div className="sync-toast-head">
+        <span className="sync-toast-title">{status.message ?? label}</span>
+        <button type="button" className="sync-toast-close" onClick={onClose} aria-label={t.settings.sync.closeStatus}>
+          ×
+        </button>
+      </div>
+      {status.lastSuccessAt && <span className="sync-toast-detail">{t.settings.sync.lastSuccess(new Date(status.lastSuccessAt).toLocaleString())}</span>}
+      {status.progress && (
+        <div className="sync-toast-progress">
+          <span>{t.settings.sync.progressPhase[status.progress.phase]}</span>
+          <span>{t.settings.sync.booksProgress(status.progress.completedBooks, status.progress.totalBooks)}</span>
+          {status.progress.currentBookTitle && <span>{t.settings.sync.currentBook(status.progress.currentBookTitle)}</span>}
+          {t.settings.sync.resourcesProgress(status.progress.completedResources, status.progress.totalResources)}
+          {status.progress.currentResourcePath && <span>{t.settings.sync.currentResource(status.progress.currentResourcePath)}</span>}
+        </div>
+      )}
     </div>
   );
 }

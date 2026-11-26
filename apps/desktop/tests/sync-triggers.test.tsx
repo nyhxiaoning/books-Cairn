@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { Window } from 'happy-dom';
 import type { LibraryEntry } from '@cairn/core/store/library';
 import { SettingsProvider } from '@cairn/ui';
+import { DEFAULT_SHELL_SETTINGS } from '../src/shared/settings';
 
 const book: LibraryEntry = {
   id: 'book-one', title: 'Book one', stations: 1, minutes: 1, budgetId: 'gist',
@@ -11,6 +12,7 @@ const book: LibraryEntry = {
 };
 
 let deckStatus: ((status: { bookId: string; total: number; ready: number; failed: number; complete: boolean }) => void) | undefined;
+let syncStatus: ((status: { state: 'disabled' | 'idle' | 'syncing' | 'success' | 'error' | 'conflict'; failedBookIds: readonly string[]; message?: string }) => void) | undefined;
 let syncBookCalls = 0;
 
 mock.module('../src/bridge', () => ({
@@ -36,7 +38,7 @@ mock.module('../src/bridge', () => ({
   revealDataDir: async () => undefined,
   resumeBook: async () => undefined,
   focusStation: () => undefined,
-  getSettings: async () => undefined,
+  getSettings: async () => DEFAULT_SHELL_SETTINGS,
   modelStatus: async () => undefined,
   devBuild: async () => false,
   generateBook: async () => book,
@@ -60,7 +62,7 @@ mock.module('../src/bridge', () => ({
   syncConfigure: async () => ({ state: 'disabled', failedBookIds: [] }),
   syncLogin: async () => ({ authenticated: true, username: 'test' }),
   syncLogout: async () => undefined,
-  onSyncStatus: () => () => undefined,
+  onSyncStatus: (listener: typeof syncStatus) => { syncStatus = listener; return () => { syncStatus = undefined; }; },
   syncStatus: async () => ({ state: 'disabled', failedBookIds: [] }),
 }));
 
@@ -68,6 +70,7 @@ const { App } = await import('../src/App');
 
 async function mount(): Promise<{ readonly root: Root; close(): void }> {
   deckStatus = undefined;
+  syncStatus = undefined;
   syncBookCalls = 0;
   const window = new Window({ url: 'http://localhost/' });
   Object.assign(globalThis, {
@@ -98,6 +101,22 @@ test('does not sync when a deck becomes ready', async () => {
     expect(deckStatus).toBeDefined();
     await act(async () => deckStatus?.({ bookId: book.id, total: 1, ready: 1, failed: 0, complete: true }));
     expect(syncBookCalls).toBe(0);
+  } finally {
+    mounted.close();
+  }
+});
+
+test('shows a dismissible sync toast and reopens it for a new status', async () => {
+  const mounted = await mount();
+  try {
+    await act(async () => syncStatus?.({ state: 'success', failedBookIds: [] }));
+    expect(document.querySelector('.sync-toast')).not.toBeNull();
+    const closeButton = document.querySelector('.sync-toast-close');
+    if (!(closeButton instanceof window.HTMLButtonElement)) throw new Error('Missing sync toast close button');
+    await act(async () => closeButton.click());
+    expect(document.querySelector('.sync-toast')).toBeNull();
+    await act(async () => syncStatus?.({ state: 'error', failedBookIds: ['book-one'], message: 'network down' }));
+    expect(document.querySelector('.sync-toast')?.textContent).toContain('network down');
   } finally {
     mounted.close();
   }
