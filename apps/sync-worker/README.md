@@ -112,8 +112,9 @@ bun run sync-worker:verify --dry-run
   manually started for one shelf book at a time; there is no automatic whole-shelf sync.
 - Login automatically pulls the latest cloud manifest; book generation and
   completed decks do not enqueue background sync; use the shelf action to sync one book.
-- Cloud versions win on conflict. A failed upload or download leaves the local
-  book playable and is shown as a retryable sync failure.
+- A changed local/cloud pair requires explicit confirmation before the local
+  version overwrites the cloud version. A failed upload or download leaves the
+  local book playable and is shown as a retryable sync failure.
 - Only generated playback resources are synchronized. `chapters.json` remains
   local, and `.cache` is never uploaded.
 - Keep Cloudflare API tokens and Worker secrets outside the repository.

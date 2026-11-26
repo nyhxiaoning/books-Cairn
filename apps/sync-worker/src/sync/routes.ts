@@ -81,21 +81,29 @@ const readManifest = async (env: Env, adminId: string): Promise<SyncManifest[]> 
 
 type ManifestMutation = SyncManifest & VersionedMutation;
 
-const manifestBody = async (request: Request): Promise<ManifestMutation | undefined> => {
+const manifestBody = async (request: Request): Promise<ManifestMutation | string> => {
   const length = request.headers.get('content-length');
-  if (length !== null && (!/^\d+$/.test(length) || Number(length) > MAX_MANIFEST_BYTES)) return undefined;
+  if (length !== null && (!/^\d+$/.test(length) || Number(length) > MAX_MANIFEST_BYTES)) return 'body_too_large';
   const text = await request.text();
-  if (new TextEncoder().encode(text).byteLength > MAX_MANIFEST_BYTES) return undefined;
+  if (new TextEncoder().encode(text).byteLength > MAX_MANIFEST_BYTES) return 'body_too_large';
   try {
-    const value = JSON.parse(text) as ManifestMutation;
-    if (!value || typeof value.bookId !== 'string' || !isBookId(value.bookId) || typeof value.title !== 'string' ||
-      !Number.isSafeInteger(value.stations) || !Number.isSafeInteger(value.minutes) || !Number.isSafeInteger(value.built) || typeof value.complete !== 'boolean' || typeof value.budgetId !== 'string' ||
-      typeof value.generatedAt !== 'string' || !Array.isArray(value.resources) || !validBaseVersion(value.baseVersion) ||
-      value.stations < 0 || value.minutes < 0 || value.built < 0) return undefined;
-    if (!value.resources.every((resource) => resource && validResourceMetadata(resource))) return undefined;
-    return value;
+    const value = JSON.parse(text) as Partial<ManifestMutation> | null;
+    if (!value || typeof value !== 'object') return 'body_not_object';
+    if (typeof value.bookId !== 'string' || !isBookId(value.bookId)) return 'book_id_invalid';
+    if (typeof value.title !== 'string') return 'title_invalid';
+    if (!Number.isSafeInteger(value.stations) || value.stations < 0) return 'stations_invalid';
+    if (typeof value.minutes !== 'number' || !Number.isFinite(value.minutes) || value.minutes < 0) return 'minutes_invalid';
+    if (!Number.isSafeInteger(value.built) || value.built < 0) return 'built_invalid';
+    if (typeof value.complete !== 'boolean') return 'complete_invalid';
+    if (typeof value.budgetId !== 'string') return 'budget_id_invalid';
+    if (typeof value.generatedAt !== 'string') return 'generated_at_invalid';
+    if (!Array.isArray(value.resources)) return 'resources_invalid';
+    if (!validBaseVersion(value.baseVersion)) return 'base_version_invalid';
+    const invalidResource = value.resources.findIndex((resource) => !resource || !validResourceMetadata(resource as SyncFile));
+    if (invalidResource >= 0) return `resource_${invalidResource}_invalid`;
+    return value as ManifestMutation;
   } catch {
-    return undefined;
+    return 'json_invalid';
   }
 };
 
@@ -110,7 +118,8 @@ const putManifest = async (env: Env, request: Request, bookId: string): Promise<
   if (adminId instanceof Response) return adminId;
   if (!isBookId(bookId)) return error('invalid_book_id', 'Book id is invalid.', 400);
   const manifest = await manifestBody(request);
-  if (!manifest || manifest.bookId !== bookId) return error('invalid_manifest', 'Manifest is invalid.', 400);
+  if (typeof manifest === 'string') return error('invalid_manifest', `Manifest is invalid: ${manifest}.`, 400);
+  if (manifest.bookId !== bookId) return error('invalid_manifest', 'Manifest is invalid: book_id_mismatch.', 400);
   const existing = await env.DB.prepare('SELECT id, admin_id, title, author, budget_id, language, voice, generated_at, version, stations, minutes, complete, built, deleted_at FROM books WHERE id = ?').bind(bookId).first<BookRow & { admin_id: string }>();
   if (existing && existing.admin_id !== adminId) return error('not_found', 'Book not found.', 404);
   const currentResources = existing && existing.deleted_at === null

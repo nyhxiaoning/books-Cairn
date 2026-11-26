@@ -120,9 +120,10 @@ prints the password, cookie, or token.
 
 After a successful desktop login, Cairn pulls the cloud manifest. Books that
 exist only locally are uploaded; books that exist only in the cloud are
-downloaded. When both sides have a different version, the cloud version wins.
-The local book remains usable if a network operation fails, and the UI exposes
-the failure for retry.
+downloaded. When both sides have a different version, a per-book confirmation
+asks whether the local version should overwrite the cloud version. Cancelling
+leaves both sides unchanged. The local book remains usable if a network
+operation fails, and the UI exposes the failure for retry.
 
 ## Troubleshooting
 
@@ -133,5 +134,9 @@ the failure for retry.
 - Health is unavailable: confirm the Worker URL, D1 migration, and R2 binding.
 - Login returns `admin_exists`: initialization already happened; do not repeat
   it as a password reset mechanism.
+- `Manifest is invalid`: redeploy the current Worker with the same Wrangler
+  config used by the desktop URL, then retry. The Worker now reports the
+  failing field in the response, such as `minutes_invalid` or
+  `resource_0_invalid`; this error happens before any R2 upload.
 - A book is missing from the cloud: check the desktop sync status and retry;
   generation-side cache files and `chapters.json` are deliberately excluded.

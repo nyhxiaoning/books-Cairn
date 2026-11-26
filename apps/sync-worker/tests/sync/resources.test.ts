@@ -113,6 +113,26 @@ test('authenticated manifest read returns owned books and resources', async () =
   expect(await response.json()).toEqual({ books: [expect.objectContaining({ bookId: 'book-123', title: 'Cloud Book', resources: [] })] });
 });
 
+test('manifest accepts fractional minutes and reports the failing field', async () => {
+  const { env, cookie } = await makeEnvironment();
+  const manifest = {
+    bookId: 'book-123', title: 'Cloud Book', stations: 1, minutes: 1.5, budgetId: 'gist',
+    generatedAt: '2026-01-01T00:00:00.000Z', complete: true, built: 1, version: 1,
+    baseVersion: 1, resources: [],
+  };
+  const accepted = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/manifest', {
+    method: 'PUT', headers: { cookie, 'content-type': 'application/json' }, body: JSON.stringify(manifest),
+  }), env);
+  expect(accepted.status).toBe(200);
+
+  const invalid = await app.fetch(new Request('https://cairn.test/api/sync/books/book-123/manifest', {
+    method: 'PUT', headers: { cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ ...manifest, resources: [{ path: 'audio/book.mp3', contentType: 'audio/mpeg', byteSize: 1, contentHash: '0'.repeat(64) }] }),
+  }), env);
+  expect(invalid.status).toBe(400);
+  expect(await invalid.json()).toMatchObject({ code: 'invalid_manifest', message: 'Manifest is invalid: resource_0_invalid.' });
+});
+
 test('resource put stores R2 bytes and D1 hash metadata, then get returns bytes', async () => {
   const { env, cookie, resources } = await makeEnvironment();
   const bytes = new TextEncoder().encode('{}');
