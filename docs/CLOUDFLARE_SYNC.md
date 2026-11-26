@@ -15,8 +15,9 @@ settings file with restrictive permissions.
 
 ## What is synchronized
 
-The R2 allowlist contains the generated playback bundle: `path.json`, deck
-JSON, audio, covers, and sync metadata. D1 stores the resource manifest,
+The R2 allowlist contains the generated playback metadata bundle: `path.json`, deck
+JSON, covers, and sync metadata. MP3 audio is deliberately excluded from both
+upload and download. D1 stores the resource manifest,
 versions, deletion tombstones, and reading progress.
 
 The following never leave the desktop through this feature:

@@ -7,6 +7,7 @@ import type { SessionStore } from '../../../src/main/sync/session-store';
 import type { CloudManifest, StoredSession } from '../../../src/main/sync/types';
 import { createSyncService } from '../../../src/main/sync/service';
 import type { SyncManifest } from '@cairn/core/sync/manifest';
+import type { SyncStatus } from '../../../src/shared/schema';
 
 const session: StoredSession = { token: 'session', expiresAt: new Date(Date.now() + 60_000).toISOString() };
 
@@ -31,6 +32,7 @@ const sessionStore = (onClear?: () => void): SessionStore => ({
 const setup = (entries: readonly LibraryEntry[], localFiles: ReadonlyMap<string, readonly LibrarySyncFile[]>, cloud: CloudManifest, initiallyConfigured = true, logoutFails = false) => {
   const installed: string[] = [];
   const uploaded: string[] = [];
+  const emitted: SyncStatus[] = [];
   const logoutCalls = { value: 0 };
   const clearCalls = { value: 0 };
   const library = {
@@ -62,8 +64,9 @@ const setup = (entries: readonly LibraryEntry[], localFiles: ReadonlyMap<string,
     createClient: () => client,
     writeSyncSettings: async (patch) => { settingsWrites.push(patch); },
     fetcher,
+    emit: (status) => { emitted.push(status); },
   });
-  return { service, installed, uploaded, settingsWrites, logoutCalls, clearCalls };
+  return { service, installed, uploaded, emitted, settingsWrites, logoutCalls, clearCalls };
 };
 
 test('configures a fresh service before login without persisting the password', async () => {
@@ -90,11 +93,13 @@ test('revokes the cloud session when possible but always clears local authentica
 
 test('uploads a local-only book without failing local operation', async () => {
   const local = filesFor('new');
-  const { service, uploaded } = setup([entry('book-new', 'New')], new Map([['book-new', local]]), { books: [] });
+  const { service, uploaded, emitted } = setup([entry('book-new', 'New')], new Map([['book-new', local]]), { books: [] });
   const result = await service.syncNow();
   expect(result.uploadedBookIds).toEqual(['book-new']);
   expect(uploaded).toEqual(['book-new:path.json', 'book-new:decks/index.json']);
   expect(result.status.state).toBe('success');
+  expect(emitted.some((status) => status.progress?.phase === 'uploading' && status.progress.currentResourcePath === 'path.json')).toBe(true);
+  expect(result.status.progress).toMatchObject({ totalBooks: 1, completedBooks: 1, currentBookIndex: 1, currentBookTitle: 'New', phase: 'complete', completedResources: 2, totalResources: 2 });
 });
 
 test('downloads a cloud-only book and installs it atomically through the library API', async () => {
@@ -103,10 +108,12 @@ test('downloads a cloud-only book and installs it atomically through the library
     ...entry('book-cloud', 'Cloud'), bookId: 'book-cloud', version: 3,
     resources: local.map((file) => ({ path: file.path, contentType: 'application/json', byteSize: bytes(`download:${file.path}`).byteLength, contentHash: hash(bytes(`download:${file.path}`)) })),
   };
-  const { service, installed } = setup([], new Map(), { books: [manifest] });
+  const { service, installed, emitted } = setup([], new Map(), { books: [manifest] });
   const result = await service.syncNow();
   expect(result.downloadedBookIds).toEqual(['book-cloud']);
   expect(installed).toEqual(['book-cloud']);
+  expect(emitted.some((status) => status.progress?.phase === 'downloading' && status.progress.currentResourcePath === 'path.json')).toBe(true);
+  expect(result.status.progress).toMatchObject({ totalBooks: 1, completedBooks: 1, currentBookTitle: 'Cloud', phase: 'complete' });
 });
 
 test('prefers the cloud version when both sides contain a changed book', async () => {
@@ -132,4 +139,5 @@ test('keeps local playback available when a cloud transfer fails', async () => {
   expect(result.failedBookIds).toEqual(['book-one']);
   expect(setupResult.installed).toEqual([]);
   expect(result.status.state).toBe('error');
+  expect(result.status.progress).toMatchObject({ currentBookId: 'book-one', currentBookTitle: 'Cloud title', phase: 'downloading', currentResourcePath: 'path.json' });
 });

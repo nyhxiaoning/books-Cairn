@@ -46,7 +46,7 @@ describe('local sync bundle', () => {
     const { library } = await fixture();
     const bundle = await exportSyncBook(library, 'b1');
     expect(bundle.files.map((file) => file.path)).toEqual([
-      'audio/n0.mp3', 'catalog.json', 'cover.webp', 'decks/index.json', 'decks/n0.json', 'path.json', 'progress.json',
+      'catalog.json', 'cover.webp', 'decks/index.json', 'decks/n0.json', 'path.json', 'progress.json',
     ]);
     expect(bundle.files.some((file) => file.path.includes('chapters') || file.path.includes('cache'))).toBe(false);
     expect(bundle.manifest.resources).toHaveLength(bundle.files.length);

@@ -277,7 +277,7 @@ npm run cf:dev
 
 ```text
 Cairn desktop -> Cloudflare Worker -> D1（管理员、会话、清单、版本、进度）
-                                      R2（生成后的 deck、音频、封面和 path.json）
+                                      R2（生成后的 deck、封面和 path.json；不包含 MP3 音频）
 ```
 
 Cairn **不会上传** `chapters.json`、`.cache`、模型 trace、chat transcript 或
@@ -341,7 +341,7 @@ unset CAIRN_SYNC_PASSWORD
 ### 运行规则
 
 - 登录成功后桌面端自动拉取云端最新清单。
-- 新生成的图书和完成的 deck 在后台同步到 R2/D1。
+- 新生成的图书和完成的 deck 在后台同步到 R2/D1；MP3 音频不会上传或下载。
 - 云端版本冲突时优先使用云端版本。
 - 网络失败保留本地图书和播放能力，并显示可重试的同步失败状态。
 - 桌面端只连接 Worker，不直接连接 D1 或 R2。

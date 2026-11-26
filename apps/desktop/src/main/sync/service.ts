@@ -5,7 +5,9 @@ import { createHash } from 'node:crypto';
 import { normalizeWorkerUrl, type CloudSyncClient } from './client';
 import type { SessionStore } from './session-store';
 import type { ManifestReceipt, ResourceUpload, SessionInfo } from './types';
-import type { AccountStatus, SyncState, SyncStatus, SyncSummary } from '../../shared/schema';
+import type {
+  AccountStatus, SyncProgress, SyncProgressPhase, SyncState, SyncStatus, SyncSummary,
+} from '../../shared/schema';
 
 export type { AccountStatus, SyncState, SyncStatus, SyncSummary };
 
@@ -38,6 +40,11 @@ const sameManifest = (left: SyncManifest, right: SyncManifest): boolean =>
   left.resources.every((file) => right.resources.some((candidate) => sameFile(file, candidate)));
 
 const hash = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
+
+const syncManifest = (manifest: SyncManifest): SyncManifest => ({
+  ...manifest,
+  resources: manifest.resources.filter((resource) => !resource.path.toLowerCase().endsWith('.mp3')),
+});
 
 const jsonResponse = async (response: Response): Promise<Record<string, unknown>> => {
   try {
@@ -93,28 +100,45 @@ export function createSyncService(deps: SyncServiceDeps) {
     return client;
   };
 
-  const installCloudBook = async (manifest: SyncManifest): Promise<void> => {
+  const installCloudBook = async (
+    manifest: SyncManifest,
+    onProgress?: (phase: SyncProgressPhase, completedResources: number, totalResources: number, path?: string) => void,
+  ): Promise<void> => {
     const files: SyncBundleFile[] = [];
-    for (const resource of manifest.resources) {
+    const resources = manifest.resources.filter((resource) => !resource.path.toLowerCase().endsWith('.mp3'));
+    for (const [index, resource] of resources.entries()) {
+      onProgress?.('downloading', index, resources.length, resource.path);
       const bytes = await configuredClient().downloadResource({ bookId: manifest.bookId, path: resource.path });
       if (bytes.byteLength !== resource.byteSize || hash(bytes) !== resource.contentHash) throw new Error('sync_hash_mismatch');
       files.push({ ...resource, bytes });
+      onProgress?.('downloading', index + 1, resources.length);
     }
+    onProgress?.('installing', resources.length, resources.length);
     const bundle: SyncBundle = { manifest, files };
     await installSyncBook(deps.library, bundle, deps.tempRoot ?? `${deps.library.root}/.cache/sync`);
   };
 
-  const uploadLocalBook = async (local: SyncBundle, cloud: SyncManifest | undefined): Promise<void> => {
+  const uploadLocalBook = async (
+    local: SyncBundle,
+    cloud: SyncManifest | undefined,
+    onProgress?: (phase: SyncProgressPhase, completedResources: number, totalResources: number, path?: string) => void,
+  ): Promise<void> => {
     const baseVersion = cloud?.version ?? 0;
+    onProgress?.('manifest', 0, local.files.length);
     const receipt = await putManifest(local.manifest, baseVersion);
-    for (const file of local.files) {
+    for (const [index, file] of local.files.entries()) {
       const cloudFile = cloud?.resources.find((candidate) => candidate.path === file.path);
-      if (cloudFile && cloudFile.contentHash === file.contentHash && cloudFile.byteSize === file.byteSize) continue;
+      onProgress?.('uploading', index, local.files.length, file.path);
+      if (cloudFile && cloudFile.contentHash === file.contentHash && cloudFile.byteSize === file.byteSize) {
+        onProgress?.('uploading', index + 1, local.files.length);
+        continue;
+      }
       const upload: ResourceUpload = {
         bookId: local.manifest.bookId, path: file.path, contentType: file.contentType,
         contentHash: file.contentHash, baseVersion: receipt.version, bytes: file.bytes,
       };
       await configuredClient().uploadResource(upload);
+      onProgress?.('uploading', index + 1, local.files.length);
     }
   };
 
@@ -128,37 +152,75 @@ export function createSyncService(deps: SyncServiceDeps) {
     const downloaded: string[] = [];
     const failed: string[] = [];
     let message: string | undefined;
+    let progress: SyncProgress = {
+      totalBooks: 0, completedBooks: 0, currentBookIndex: 0, currentBookId: '', currentBookTitle: '',
+      phase: 'manifest', completedResources: 0, totalResources: 0,
+    };
+    const publishProgress = (patch: Partial<SyncProgress>): void => {
+      progress = { ...progress, ...patch };
+      publish({ state: 'syncing', failedBookIds: [...failed], progress });
+    };
     try {
+      publishProgress({ phase: 'manifest' });
       const cloud = await configuredClient().fetchManifest();
+      const remoteBooks = cloud.books.map(syncManifest);
       const localEntries = await deps.library.list();
       const localIds = new Set(localEntries.map((entry) => entry.id));
-      const cloudById = new Map(cloud.books.map((book) => [book.bookId, book]));
+      const cloudById = new Map(remoteBooks.map((book) => [book.bookId, book]));
+      const bookIds = new Set([...remoteBooks.map((book) => book.bookId), ...localEntries.map((entry) => entry.id)]);
+      progress = { ...progress, totalBooks: bookIds.size };
+      let bookIndex = 0;
 
-      for (const remote of cloud.books) {
+      for (const remote of remoteBooks) {
+        bookIndex += 1;
         try {
+          publishProgress({
+            currentBookIndex: bookIndex, currentBookId: remote.bookId, currentBookTitle: remote.title,
+            phase: 'downloading', completedResources: 0, totalResources: remote.resources.length,
+          });
           const local = localIds.has(remote.bookId) ? await exportSyncBook(deps.library, remote.bookId) : undefined;
           if (!local || !sameManifest(local.manifest, remote)) {
-            await installCloudBook(remote);
+            await installCloudBook(remote, (phase, completedResources, totalResources, currentResourcePath) => {
+              publishProgress({ phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
+            });
             downloaded.push(remote.bookId);
           }
+          progress = { ...progress, completedBooks: progress.completedBooks + 1 };
+          publishProgress({ completedBooks: progress.completedBooks, phase: 'complete', completedResources: remote.resources.length, totalResources: remote.resources.length, currentResourcePath: undefined });
         } catch (cause) {
           failed.push(remote.bookId);
           message ??= errorMessage(cause);
+          publishProgress({ phase: progress.phase });
         }
       }
       for (const entry of localEntries) {
         if (cloudById.has(entry.id)) continue;
+        bookIndex += 1;
         try {
-          await uploadLocalBook(await exportSyncBook(deps.library, entry.id), undefined);
+          const local = await exportSyncBook(deps.library, entry.id);
+          publishProgress({
+            currentBookIndex: bookIndex, currentBookId: entry.id, currentBookTitle: entry.title,
+            phase: 'manifest', completedResources: 0, totalResources: local.files.length, currentResourcePath: undefined,
+          });
+          await uploadLocalBook(local, undefined, (phase, completedResources, totalResources, currentResourcePath) => {
+            publishProgress({ phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
+          });
           uploaded.push(entry.id);
+          progress = { ...progress, completedBooks: progress.completedBooks + 1 };
+          publishProgress({ completedBooks: progress.completedBooks, phase: 'complete', completedResources: local.files.length, totalResources: local.files.length, currentResourcePath: undefined });
         } catch (cause) {
           // A second desktop may have created the book between the manifest
           // read and the mutation. Re-read once and let the cloud win.
           try {
             const afterConflict = (await configuredClient().fetchManifest()).books.find((book) => book.bookId === entry.id);
             if (afterConflict) {
-              await installCloudBook(afterConflict);
+              const remote = syncManifest(afterConflict);
+              await installCloudBook(remote, (phase, completedResources, totalResources, currentResourcePath) => {
+                publishProgress({ phase, completedResources, totalResources, ...(currentResourcePath ? { currentResourcePath } : { currentResourcePath: undefined }) });
+              });
               downloaded.push(entry.id);
+              progress = { ...progress, completedBooks: progress.completedBooks + 1 };
+              publishProgress({ completedBooks: progress.completedBooks, phase: 'complete', completedResources: remote.resources.length, totalResources: remote.resources.length, currentResourcePath: undefined });
               continue;
             }
           } catch (retryCause) {
@@ -175,6 +237,7 @@ export function createSyncService(deps: SyncServiceDeps) {
       state: failed.length > 0 || message ? 'error' : 'success',
       lastSuccessAt: failed.length === 0 && !message ? new Date().toISOString() : status.lastSuccessAt,
       failedBookIds: [...new Set(failed)],
+      progress: { ...progress, phase: failed.length === 0 && !message ? 'complete' : progress.phase },
       ...(message ? { message } : {}),
     });
     return { uploadedBookIds: uploaded, downloadedBookIds: downloaded, failedBookIds: next.failedBookIds, status: next };

@@ -3,7 +3,8 @@
 The Worker stores one administrator account in D1 and keeps session tokens in
 HttpOnly, Secure, SameSite=Strict cookies. It never returns passwords or stores
 session tokens in plaintext. D1 stores account, manifest, resource metadata,
-and reading progress; R2 stores the allowed book resources.
+and reading progress; R2 stores the allowed book resources. MP3 audio is excluded
+from both upload and download.
 
 The sync boundary intentionally excludes `chapters.json`, `.cache`, traces,
 chat transcripts, source snapshots, and other generation-only files. A synced
